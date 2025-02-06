@@ -11,6 +11,16 @@ You will then need to install the code here locally by running
 ```bash
     pip install -e .
 ```
+
+# Running the model 
+
+```python
+
+   from concept_attention import ConceptAttentionPipeline
+
+
+```
+
 # Experiments
 
 Each of our experiments are in separate directories in `experiments`. 

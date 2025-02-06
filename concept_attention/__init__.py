@@ -1,0 +1,2 @@
+
+from concept_attention.concept_attention_pipeline import ConceptAttentionFluxPipeline

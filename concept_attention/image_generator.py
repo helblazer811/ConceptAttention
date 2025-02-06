@@ -104,6 +104,7 @@ class FluxGenerator():
         edit_metadata=None,
         joint_attention_kwargs=None,
         return_score_deltas=False,
+        return_concept_heatmaps=False
     ):
         seed = int(seed)
         if seed == -1:
@@ -211,5 +212,8 @@ class FluxGenerator():
 
         if return_score_deltas:
             return img, score_deltas
+
+        if return_concept_heatmaps:
+            return img, concept_heatmaps
         
         return img

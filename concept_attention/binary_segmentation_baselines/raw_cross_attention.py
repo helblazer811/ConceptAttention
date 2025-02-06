@@ -117,6 +117,7 @@ class RawCrossAttentionSegmentationModel(SegmentationAbstractClass):
 
     def __init__(
         self,
+        generator=None,
         model_name: str = "flux-schnell",
         device: str = "cuda",
         offload: bool = True,
@@ -125,12 +126,15 @@ class RawCrossAttentionSegmentationModel(SegmentationAbstractClass):
             Initialize the segmentation model.
         """
         super(RawCrossAttentionSegmentationModel, self).__init__()
-        # Load up the flux generator
-        self.generator = FluxGenerator(
-            model_name=model_name,
-            device=device,
-            offload=offload,
-        )
+        if generator is not None:
+            self.generator = generator
+        else:
+            # Load up the flux generator
+            self.generator = FluxGenerator(
+                model_name=model_name,
+                device=device,
+                offload=offload,
+            )
 
         self.is_schnell = "schnell" in model_name
 
