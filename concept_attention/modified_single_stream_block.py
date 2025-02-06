@@ -19,6 +19,7 @@ class ModifiedSingleStreamBlock(nn.Module):
         num_heads: int,
         mlp_ratio: float = 4.0,
         qk_scale: float | None = None,
+        cache_vectors=False
     ):
         super().__init__()
         self.hidden_dim = hidden_size
@@ -40,9 +41,11 @@ class ModifiedSingleStreamBlock(nn.Module):
         self.mlp_act = nn.GELU(approximate="tanh")
         self.modulation = Modulation(hidden_size, double=False)
 
+
         # Store vectors
         self.concept_output_vectors = []
         self.image_output_vectors = []
+        self.cache_vectors = cache_vectors
 
     def clear_cached_vectors(self):
         self.concept_output_vectors = []
@@ -74,8 +77,9 @@ class ModifiedSingleStreamBlock(nn.Module):
         attn_img_concept = attention(q, k, v, pe=concept_pe)
         img_output_vectors = attn_img_concept[:, -NUM_IMAGE_PATCHES:]
         concept_output_vectors = attn_img_concept[:, :-NUM_IMAGE_PATCHES]
-        self.concept_output_vectors.append(concept_output_vectors.detach().cpu())
-        self.image_output_vectors.append(img_output_vectors.detach().cpu())
+        if self.cache_vectors:
+            self.concept_output_vectors.append(concept_output_vectors.detach().cpu())
+            self.image_output_vectors.append(img_output_vectors.detach().cpu())
         # Now do the second linear layer
         output_img_concept = self.linear2(torch.cat((attn_img_concept, self.mlp_act(mlp)), 2))
         concept_output = output_img_concept[:, :-NUM_IMAGE_PATCHES]

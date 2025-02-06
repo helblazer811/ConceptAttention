@@ -42,8 +42,11 @@ class RawOutputSpaceBaseline():
         seed=4,
         num_steps=4,
         timesteps=None,
-        layers=None,
-        softmax=False
+        layers=list(range(19)),
+        softmax=False,
+        height=1024,
+        width=1024,
+        guidance=0.0,
     ):
         """
             Generate cross attention heatmap visualizations. 
@@ -63,10 +66,10 @@ class RawOutputSpaceBaseline():
             layers = list(range(19))
         # Run the image generator
         image = self.generator.generate_image(
-            width=1024,
-            height=1024,
+            width=height,
+            height=width,
             num_steps=num_steps,
-            guidance=0.0,
+            guidance=guidance,
             seed=seed,
             prompt=prompt,
             concepts=concepts
