@@ -143,10 +143,13 @@ class ConceptAttentionFluxPipeline():
        
         # Convert the torch heatmaps to PIL images. 
         if return_pil_heatmaps:
+            min_val = concept_heatmaps.min()
+            max_val = concept_heatmaps.max()
             # Convert to a matplotlib color scheme
             colored_heatmaps = []
             for concept_heatmap in concept_heatmaps:
-                concept_heatmap = (concept_heatmap - concept_heatmap.min()) / (concept_heatmap.max() - concept_heatmap.min())
+                # concept_heatmap = (concept_heatmap - concept_heatmap.min()) / (concept_heatmap.max() - concept_heatmap.min())
+                concept_heatmap = (concept_heatmap - min_val) / (max_val - min_val)
                 colored_heatmap = plt.get_cmap(cmap)(concept_heatmap)
                 rgb_image = (colored_heatmap[:, :, :3] * 255).astype(np.uint8)
                 colored_heatmaps.append(rgb_image)

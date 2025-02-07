@@ -6,6 +6,16 @@ from PIL import Image
 
 from concept_attention import ConceptAttentionFluxPipeline
 
+concept_attention_default_args = {
+    "model_name": "flux-schnell",
+    "device": "cuda",
+    "layer_indices": list(range(10, 19)),
+    "timesteps": list(range(4)),
+    "num_samples": 4,
+    "num_inference_steps": 4
+}
+IMG_SIZE = 250
+
 EXAMPLES = [
     [
         "A fluffy cat sitting on a windowsill",  # prompt
@@ -13,13 +23,12 @@ EXAMPLES = [
         "fur, whiskers, eyes",  # words
         42,  # seed
     ],
-    ["Mountain landscape with lake", "cat.png", "sky, trees, water", 123],
-    ["Portrait of a young woman", "monkey.png", "face, hair, eyes", 456],
+    # ["Mountain landscape with lake", "cat.jpg", "sky, trees, water", 123],
+    # ["Portrait of a young woman", "monkey.png", "face, hair, eyes", 456],
 ]
 
 
 pipeline = ConceptAttentionFluxPipeline(model_name="flux-schnell", device="cuda")
-
 
 def process_inputs(prompt, input_image, word_list, seed):
     prompt = prompt.strip()
@@ -40,6 +49,7 @@ def process_inputs(prompt, input_image, word_list, seed):
             width=1024,
             height=1024,
             seed=seed,
+            num_samples=concept_attention_default_args["num_samples"]
         )
     else:
         pipeline_output = pipeline.generate_image(
@@ -48,6 +58,8 @@ def process_inputs(prompt, input_image, word_list, seed):
             width=1024,
             height=1024,
             seed=seed,
+            timesteps=concept_attention_default_args["timesteps"],
+            num_inference_steps=concept_attention_default_args["num_inference_steps"],
         )
 
     output_image = pipeline_output.image
@@ -55,15 +67,15 @@ def process_inputs(prompt, input_image, word_list, seed):
 
     html_elements = []
     for concept, heatmap in zip(concepts, concept_heatmaps):
-        img = heatmap.resize((128, 128))
+        img = heatmap.resize((IMG_SIZE, IMG_SIZE), resample=Image.NEAREST)
         buffered = io.BytesIO()
         img.save(buffered, format="PNG")
         img_str = base64.b64encode(buffered.getvalue()).decode()
 
         html = f"""
-        <div style='text-align: center; margin: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;'>
-            <h3 style='margin-bottom: 10px;'>{concept}</h3>
-            <img src='data:image/png;base64,{img_str}' style='width: 128px; height: 128px;'>
+        <div style='text-align: center; margin: 5px; padding: 5px;  overflow-x: auto;'>
+            <h1 style='margin-bottom: 10px;'>{concept}</h1>
+            <img src='data:image/png;base64,{img_str}' style='width: {IMG_SIZE}px; height: {IMG_SIZE}px;'>
         </div>
         """
         html_elements.append(html)
@@ -104,9 +116,20 @@ with gr.Blocks(
         with gr.Row(elem_classes="section"):
             saliency_display = gr.HTML(label="Saliency Maps")
 
-        submit_btn.click(fn=process_inputs, inputs=[prompt, image_input, words, seed], outputs=[image_input, saliency_display])
+        submit_btn.click(
+            fn=process_inputs, 
+            inputs=[prompt, image_input, words, seed], outputs=[image_input, saliency_display]
+        )
 
         gr.Examples(examples=EXAMPLES, inputs=[prompt, image_input, words, seed], outputs=[image_input, saliency_display], fn=process_inputs, cache_examples=False)
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(
+        share=False,
+        server_name="0.0.0.0",
+        inbrowser=True,
+        # share=False,
+        server_port=6754,
+        quiet=True,
+        max_threads=1
+    )
