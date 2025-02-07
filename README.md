@@ -14,11 +14,32 @@ You will then need to install the code here locally by running
 
 # Running the model 
 
+Here is an example of how to run Flux with Concept Attention
+
 ```python
+from concept_attention import ConceptAttentionFluxPipeline
 
-   from concept_attention import ConceptAttentionPipeline
+pipeline = ConceptAttentionFluxPipeline(
+    model_name="flux-schnell",
+    device="cuda:0"
+)
 
+prompt = "A dragon standing on a rock. "
+concepts = ["dragon", "rock", "sky", "cloud"]
 
+pipeline_output = pipeline.generate_image(
+    prompt=prompt,
+    concepts=concepts,
+    width=1024,
+    height=1024,
+)
+
+image = pipeline_output.image
+concept_heatmaps = pipeline_output.concept_heatmaps
+
+image.save("image.png")
+for concept, concept_heatmap in zip(concepts, concept_heatmaps):
+    concept_heatmap.save(f"{concept}.png")
 ```
 
 # Experiments
@@ -38,4 +59,11 @@ To use ImageNetSegmentation you will need to download `gtsegs_ijcv.mat` into `ex
 ```bash
     cd experiments/imagenet_segmentation/data
     wget http://calvin-vision.net/bigstuff/proj-imagenet/data/gtsegs_ijcv.mat
+```
+
+
+# Bibtex
+
+```
+    Bibtex goes here. 
 ```
