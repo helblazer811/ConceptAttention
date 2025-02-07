@@ -73,9 +73,9 @@ def process_inputs(prompt, input_image, word_list, seed):
         img_str = base64.b64encode(buffered.getvalue()).decode()
 
         html = f"""
-        <div style='text-align: center; margin: 5px; padding: 5px;  overflow-x: auto;'>
+        <div style='text-align: center; margin: 5px; padding: 5px;  overflow-x: auto; white-space: nowrap;'>
             <h1 style='margin-bottom: 10px;'>{concept}</h1>
-            <img src='data:image/png;base64,{img_str}' style='width: {IMG_SIZE}px; height: {IMG_SIZE}px;'>
+            <img src='data:image/png;base64,{img_str}' style='width: {IMG_SIZE}px; display: inline-block; height: {IMG_SIZE}px;'>
         </div>
         """
         html_elements.append(html)
@@ -105,10 +105,12 @@ with gr.Blocks(
                 prompt = gr.Textbox(label="Enter your prompt")
                 words = gr.Textbox(label="Enter words (comma-separated)")
                 seed = gr.Slider(minimum=0, maximum=10000, step=1, label="Seed", value=42)
+                gr.HTML("<div style='text-align: center;'> <h1> Or </h1> </div>")
+                image_input = gr.Image(type="numpy", label="Upload image (optional)")
 
             with gr.Column(elem_classes="section"):
                 gr.Markdown("### Output")
-                image_input = gr.Image(type="numpy", label="Upload image (optional)")
+                output_image = gr.Image(type="numpy", label="Output image")
 
         with gr.Row():
             submit_btn = gr.Button("Process")
@@ -118,10 +120,10 @@ with gr.Blocks(
 
         submit_btn.click(
             fn=process_inputs, 
-            inputs=[prompt, image_input, words, seed], outputs=[image_input, saliency_display]
+            inputs=[prompt, image_input, words, seed], outputs=[output_image, saliency_display]
         )
 
-        gr.Examples(examples=EXAMPLES, inputs=[prompt, image_input, words, seed], outputs=[image_input, saliency_display], fn=process_inputs, cache_examples=False)
+        gr.Examples(examples=EXAMPLES, inputs=[prompt, image_input, words, seed], outputs=[output_image, saliency_display], fn=process_inputs, cache_examples=False)
 
 if __name__ == "__main__":
     demo.launch(
