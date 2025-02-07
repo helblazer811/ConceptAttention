@@ -1,6 +1,7 @@
 import base64
 import io
 
+import spaces
 import gradio as gr
 from PIL import Image
 
@@ -30,6 +31,8 @@ EXAMPLES = [
 
 pipeline = ConceptAttentionFluxPipeline(model_name="flux-schnell", device="cuda")
 
+
+@spaces.GPU(duration=60)
 def process_inputs(prompt, input_image, word_list, seed):
     prompt = prompt.strip()
     if not word_list.strip():
@@ -127,7 +130,7 @@ with gr.Blocks(
 
 if __name__ == "__main__":
     demo.launch(
-        share=False,
+        share=True,
         server_name="0.0.0.0",
         inbrowser=True,
         # share=False,

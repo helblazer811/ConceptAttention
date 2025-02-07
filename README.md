@@ -2,7 +2,7 @@
 ConceptAttention is an interpretability method for mulit-modal diffusion transformers. We implement it for the Flux DiT architecture in pytorch. 
 
 <p align="center">
-    <img src="teaser.png" alt="Teaser Image" width="800"/>
+    <img src="images/teaser.png" alt="Teaser Image" width="800"/>
 </p>
 
 # Code setup
