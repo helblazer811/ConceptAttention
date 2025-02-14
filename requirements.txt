@@ -1,4 +1,4 @@
--e .
+# -e .
 absl-py==2.1.0
 accelerate==0.23.0
 aiofiles==23.2.1
@@ -16,7 +16,7 @@ catalogue==2.0.10
 click==8.1.7
 cloudpathlib==0.20.0
 compel==2.0.3
-# -e git+https://github.com/helblazer811/ConceptAttention.git#egg=concept_attention
+-e git+https://github.com/helblazer811/ConceptAttention.git#egg=concept_attention
 #@4d8b00ebdfda3534818fd7a42fd725f39fc95b72#egg=concept_attention
 confection==0.1.5
 contourpy==1.3.0
