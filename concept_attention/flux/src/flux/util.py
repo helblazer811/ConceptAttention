@@ -7,6 +7,8 @@ from huggingface_hub import hf_hub_download
 from imwatermark import WatermarkEncoder
 from safetensors.torch import load_file as load_sft
 
+from transformers import T5EncoderModel
+
 from concept_attention.flux.src.flux.model import Flux, FluxParams
 from concept_attention.flux.src.flux.modules.autoencoder import AutoEncoder, AutoEncoderParams
 from concept_attention.flux.src.flux.modules.conditioner import HFEmbedder
@@ -86,7 +88,7 @@ configs = {
             z_channels=16,
             scale_factor=0.3611,
             shift_factor=0.1159,
-        ),
+        )
     ),
 }
 
@@ -126,7 +128,18 @@ def load_flow_model(name: str, device: str | torch.device = "cuda", hf_download:
 
 def load_t5(device: str | torch.device = "cuda", max_length: int = 512) -> HFEmbedder:
     # max length 64, 128, 256 and 512 should work (if your sequence is short enough)
-    return HFEmbedder("google/t5-v1_1-xxl", max_length=max_length, torch_dtype=torch.bfloat16).to(device)
+    # Load the safe tensors model 
+    # ckpt_path = hf_hub_download(configs["name"].repo_id, configs["name"].repo_flow)
+    # return T5Encoder("google/t5-v1_1-xxl", max_length=max_length, torch_dtype=torch.bfloat16).to(device)
+    t5_encoder = T5EncoderModel.from_pretrained(
+        "black-forest-labs/FLUX.1-schnell",
+        folder="text_encoder_2",
+        max_length=max_length,
+        torch_dtype=torch.bfloat16,
+    ).to(device)
+
+    return t5_encoder
+    # return HFEmbedder("google/t5-v1_1-xxl", max_length=max_length, torch_dtype=torch.bfloat16).to(device)
 
 def load_clip(device: str | torch.device = "cuda") -> HFEmbedder:
     return HFEmbedder("openai/clip-vit-large-patch14", max_length=77, torch_dtype=torch.bfloat16).to(device)
