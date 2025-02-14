@@ -129,12 +129,12 @@ with gr.Blocks(
         gr.Examples(examples=EXAMPLES, inputs=[prompt, image_input, words, seed], outputs=[output_image, saliency_display], fn=process_inputs, cache_examples=False)
 
 if __name__ == "__main__":
-    demo.launch(
-        share=True,
-        server_name="0.0.0.0",
-        inbrowser=True,
-        # share=False,
-        server_port=6754,
-        quiet=True,
-        max_threads=1
-    )
+    demo.launch()
+    #     share=True,
+    #     server_name="0.0.0.0",
+    #     inbrowser=True,
+    #     # share=False,
+    #     server_port=6754,
+    #     quiet=True,
+    #     max_threads=1
+    # )
