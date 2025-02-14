@@ -136,8 +136,8 @@ def load_t5(device: str | torch.device = "cuda", max_length: int = 512) -> HFEmb
     model_config = AutoConfig.from_pretrained(config_file)
     # Load the safe tensors into a single state dict
     state_dict = {}
-    state_dict.update(load_sft(safe_tensor_1, device=device))
-    state_dict.update(load_sft(safe_tensor_2, device=device))
+    state_dict.update(load_sft(safe_tensor_1, device=str(device)))
+    state_dict.update(load_sft(safe_tensor_2, device=str(device)))
     # Load the state dict
     t5_encoder = AutoModel.from_pretrained(configs["flux-schnell"].repo_id, config=model_config, state_dict=state_dict)
 
