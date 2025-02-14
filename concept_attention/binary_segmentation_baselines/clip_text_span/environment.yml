@@ -1,0 +1,19 @@
+name: prsclip
+channels:
+  - pytorch
+  - nvidia
+dependencies:
+  - python >= 3.8
+  - pytorch >= 1.13
+  - torchvision
+  - pytorch-cuda=11.7
+  - pip:
+    - timm
+    - einops
+    - ftfy
+    - scipy
+    - imageio
+    - h5py
+    - scikit-image
+    - scikit-learn
+    - opencv-python

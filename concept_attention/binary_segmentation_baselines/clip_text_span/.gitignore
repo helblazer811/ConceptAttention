@@ -1,0 +1,6 @@
+.ipynb_checkpoints/
+__pycache__/
+*/*.mat
+utils/__pycache__
+imagenet_seg/
+run/
