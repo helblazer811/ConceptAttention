@@ -1,4 +1,4 @@
--e ~/app/concept_attention
+-e git+~/app/concept_attention
 absl-py==2.1.0
 accelerate==0.23.0
 aiofiles==23.2.1
