@@ -7,7 +7,7 @@ from huggingface_hub import hf_hub_download
 from imwatermark import WatermarkEncoder
 from safetensors.torch import load_file as load_sft
 
-from transformers import T5EncoderModel
+from transformers import T5EncoderModel, AutoConfig, AutoModel
 
 from concept_attention.flux.src.flux.model import Flux, FluxParams
 from concept_attention.flux.src.flux.modules.autoencoder import AutoEncoder, AutoEncoderParams
@@ -127,16 +127,30 @@ def load_flow_model(name: str, device: str | torch.device = "cuda", hf_download:
     return model
 
 def load_t5(device: str | torch.device = "cuda", max_length: int = 512) -> HFEmbedder:
+    # Download each of the files 
+    config_file = hf_hub_download(configs["flux-schnell"].repo_id, "text_encoder_2/config.json") # File 1: config.json
+    safe_tensor_1 = hf_hub_download(configs["flux-schnell"].repo_id, "text_encoder_2/model-00001-of-00002.safetensors") # File 2: model-00001-of-00002.safetensors
+    safe_tensor_2 = hf_hub_download(configs["flux-schnell"].repo_id, "text_encoder_2/model-00002-of-00002.safetensors") # File 3: model-00002-of-00002.safetensors
+    safetensor_index = hf_hub_download(configs["flux-schnell"].repo_id, "text_encoder_2/model.safetensors.index.json") # File 4: model.safetensors.index.json
+    # Auto config the model from the loaded config 
+    model_config = AutoConfig.from_pretrained(config_file)
+    # Load the safe tensors into a single state dict
+    state_dict = {}
+    state_dict.update(load_sft(safe_tensor_1, device=device))
+    state_dict.update(load_sft(safe_tensor_2, device=device))
+    # Load the state dict
+    t5_encoder = AutoModel.from_pretrained(configs["flux-schnell"].repo_id, config=model_config, state_dict=state_dict)
+
     # max length 64, 128, 256 and 512 should work (if your sequence is short enough)
     # Load the safe tensors model 
     # ckpt_path = hf_hub_download(configs["name"].repo_id, configs["name"].repo_flow)
     # return T5Encoder("google/t5-v1_1-xxl", max_length=max_length, torch_dtype=torch.bfloat16).to(device)
-    t5_encoder = T5EncoderModel.from_pretrained(
-        "black-forest-labs/FLUX.1-schnell",
-        folder="text_encoder_2",
-        max_length=max_length,
-        torch_dtype=torch.bfloat16,
-    ).to(device)
+    # t5_encoder = T5EncoderModel.from_pretrained(
+    #     "black-forest-labs/FLUX.1-schnell",
+    #     folder="text_encoder_2",
+    #     max_length=max_length,
+    #     torch_dtype=torch.bfloat16,
+    # ).to(device)
 
     return t5_encoder
     # return HFEmbedder("google/t5-v1_1-xxl", max_length=max_length, torch_dtype=torch.bfloat16).to(device)
