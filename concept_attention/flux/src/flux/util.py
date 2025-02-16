@@ -2,6 +2,7 @@ import os
 from dataclasses import dataclass
 
 import torch
+from torch import nn
 from einops import rearrange
 from huggingface_hub import hf_hub_download
 from imwatermark import WatermarkEncoder
@@ -126,6 +127,34 @@ def load_flow_model(name: str, device: str | torch.device = "cuda", hf_download:
 
     return model
 
+
+class T5Embedder(nn.Module):
+    def __init__(self, hf_module, tokenizer, max_length=512, output_key="last_hidden_state"):
+        super().__init__()
+        self.max_length = max_length
+        self.output_key = output_key
+        self.hf_module = hf_module
+        self.tokenizer = tokenizer
+
+    def forward(self, text: list[str]) -> torch.Tensor:
+        batch_encoding = self.tokenizer(
+            text,
+            truncation=True,
+            max_length=self.max_length,
+            return_length=False,
+            return_overflowing_tokens=False,
+            padding="max_length",
+            return_tensors="pt",
+        )
+
+        outputs = self.hf_module(
+            input_ids=batch_encoding["input_ids"].to(self.hf_module.device),
+            attention_mask=None,
+            output_hidden_states=False,
+        )
+        return outputs[self.output_key]
+
+
 def load_t5(device: str | torch.device = "cuda", max_length: int = 512) -> HFEmbedder:
     # Download each of the files 
     config_file = hf_hub_download(configs["flux-schnell"].repo_id, "text_encoder_2/config.json") # File 1: config.json
@@ -139,13 +168,20 @@ def load_t5(device: str | torch.device = "cuda", max_length: int = 512) -> HFEmb
     state_dict.update(load_sft(safe_tensor_1, device=str(device)))
     state_dict.update(load_sft(safe_tensor_2, device=str(device)))
     # Load the state dict
-    t5_encoder = T5EncoderModel(config=model_config)
+    t5_encoder = T5EncoderModel(config=model_config).to(torch.bfloat16)
     t5_encoder.load_state_dict(state_dict, strict=False)
 
     # Load the tokenizer
     tokenizer = T5Tokenizer.from_pretrained("google/t5-v1_1-xxl")
     t5_encoder.tokenizer = tokenizer
 
+    # Now make t5 a custom model that tokenizes the input and then passes it through the model
+    return T5Embedder(
+        t5_encoder, 
+        tokenizer, 
+        max_length=max_length, 
+        output_key="last_hidden_state"
+    ).to(device)
     # max length 64, 128, 256 and 512 should work (if your sequence is short enough)
     # Load the safe tensors model 
     # ckpt_path = hf_hub_download(configs["name"].repo_id, configs["name"].repo_flow)
@@ -156,8 +192,8 @@ def load_t5(device: str | torch.device = "cuda", max_length: int = 512) -> HFEmb
     #     max_length=max_length,
     #     torch_dtype=torch.bfloat16,
     # ).to(device)
-
-    return t5_encoder
+# 
+    # return t5_encoder
     # return HFEmbedder("google/t5-v1_1-xxl", max_length=max_length, torch_dtype=torch.bfloat16).to(device)
 
 def load_clip(device: str | torch.device = "cuda") -> HFEmbedder:

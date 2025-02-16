@@ -28,12 +28,11 @@ EXAMPLES = [
     # ["Portrait of a young woman", "monkey.png", "face, hair, eyes", 456],
 ]
 
-
 pipeline = ConceptAttentionFluxPipeline(model_name="flux-schnell", device="cuda")
-
 
 @spaces.GPU(duration=60)
 def process_inputs(prompt, input_image, word_list, seed):
+    print("Processing inputs")
     prompt = prompt.strip()
     if not word_list.strip():
         return None, "Please enter comma-separated words"
