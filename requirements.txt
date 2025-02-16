@@ -129,7 +129,7 @@ srsly==2.5.0
 starlette==0.45.2
 tensorboard==2.18.0
 tensorboard-data-server==0.7.2
-tensorflow==2.17.0
+tensorflow==2.18.0
 tensorflow-io-gcs-filesystem==0.37.1
 termcolor==2.5.0
 tf_keras==2.18.0
