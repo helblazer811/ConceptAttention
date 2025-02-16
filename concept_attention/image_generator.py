@@ -58,8 +58,9 @@ def get_models(
     clip = load_clip(device)
     model = load_flow_model(name, device="cpu" if offload else device, attention_block_class=attention_block_class, dit_class=dit_class)
     ae = load_ae(name, device="cpu" if offload else device)
-    # nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
-    return model, ae, t5, clip, None
+    nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
+
+    return model, ae, t5, clip, nsfw_classifier
 
 class FluxGenerator():
 

@@ -4,6 +4,9 @@ import io
 import spaces
 import gradio as gr
 from PIL import Image
+import requests
+import numpy as np
+import PIL
 
 from concept_attention import ConceptAttentionFluxPipeline
 
@@ -17,15 +20,28 @@ concept_attention_default_args = {
 }
 IMG_SIZE = 250
 
+def download_image(url):
+    return Image.open(io.BytesIO(requests.get(url).content))
+
 EXAMPLES = [
     [
-        "A fluffy cat sitting on a windowsill",  # prompt
-        "cat.jpg",  # image
-        "fur, whiskers, eyes",  # words
+        "A dog by a tree",  # prompt
+        download_image("https://github.com/helblazer811/ConceptAttention/blob/master/images/dog_by_tree.png?raw=true"),
+        "tree, dog, grass, background",  # words
         42,  # seed
     ],
-    # ["Mountain landscape with lake", "cat.jpg", "sky, trees, water", 123],
-    # ["Portrait of a young woman", "monkey.png", "face, hair, eyes", 456],
+    [
+        "A dragon",  # prompt
+        download_image("https://github.com/helblazer811/ConceptAttention/blob/master/images/dragon_image.png?raw=true"),
+        "dragon, sky, rock, cloud",  # words
+        42,  # seed
+    ],
+       [
+        "A hot air balloon",  # prompt
+        download_image("https://github.com/helblazer811/ConceptAttention/blob/master/images/hot_air_balloon.png?raw=true"),
+        "balloon, sky, water, tree",  # words
+        42,  # seed
+    ]
 ]
 
 pipeline = ConceptAttentionFluxPipeline(model_name="flux-schnell", device="cuda")
@@ -40,9 +56,15 @@ def process_inputs(prompt, input_image, word_list, seed):
     concepts = [w.strip() for w in word_list.split(",")]
 
     if input_image is not None:
-        input_image = Image.fromarray(input_image)
-        input_image = input_image.convert("RGB")
-        input_image = input_image.resize((1024, 1024))
+        if isinstance(input_image, np.ndarray):
+            input_image = Image.fromarray(input_image)
+            input_image = input_image.convert("RGB")
+            input_image = input_image.resize((1024, 1024))
+        elif isinstance(input_image, PIL.Image.Image):
+            input_image = input_image.convert("RGB")
+            input_image = input_image.resize((1024, 1024))
+
+        print(input_image.size)
 
         pipeline_output = pipeline.encode_image(
             image=input_image,
@@ -128,7 +150,7 @@ with gr.Blocks(
         gr.Examples(examples=EXAMPLES, inputs=[prompt, image_input, words, seed], outputs=[output_image, saliency_display], fn=process_inputs, cache_examples=False)
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(max_threads=1)
     #     share=True,
     #     server_name="0.0.0.0",
     #     inbrowser=True,

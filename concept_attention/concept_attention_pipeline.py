@@ -28,7 +28,7 @@ class ConceptAttentionFluxPipeline():
         device="cuda:0"
     ):
         self.model_name = model_name
-        self.offload_model = False
+        self.offload_model = offload_model
         # Load the generator
         self.flux_generator = FluxGenerator(
             model_name=model_name,
@@ -139,7 +139,7 @@ class ConceptAttentionFluxPipeline():
             height=height,
             width=width
         )
-        concept_heatmaps = concept_heatmaps.detach().cpu().numpy()
+        concept_heatmaps = concept_heatmaps.detach().cpu().numpy().squeeze()
        
         # Convert the torch heatmaps to PIL images. 
         if return_pil_heatmaps:

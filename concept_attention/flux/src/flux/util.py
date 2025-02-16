@@ -136,6 +136,7 @@ class T5Embedder(nn.Module):
         self.hf_module = hf_module
         self.tokenizer = tokenizer
 
+    @torch.no_grad()
     def forward(self, text: list[str]) -> torch.Tensor:
         batch_encoding = self.tokenizer(
             text,
@@ -181,7 +182,7 @@ def load_t5(device: str | torch.device = "cuda", max_length: int = 512) -> HFEmb
         tokenizer, 
         max_length=max_length, 
         output_key="last_hidden_state"
-    ).to(device)
+    ).to(device).to(torch.bfloat16)
     # max length 64, 128, 256 and 512 should work (if your sequence is short enough)
     # Load the safe tensors model 
     # ckpt_path = hf_hub_download(configs["name"].repo_id, configs["name"].repo_flow)
