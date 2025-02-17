@@ -10,14 +10,14 @@ import PIL
 
 from concept_attention import ConceptAttentionFluxPipeline
 
-concept_attention_default_args = {
-    "model_name": "flux-schnell",
-    "device": "cuda",
-    "layer_indices": list(range(10, 19)),
-    "timesteps": list(range(4)),
-    "num_samples": 4,
-    "num_inference_steps": 4
-}
+# concept_attention_default_args = {
+#     "model_name": "flux-schnell",
+#     "device": "cuda",
+#     "layer_indices": list(range(10, 19)),
+#     "timesteps": list(range(2, 4)),
+#     "num_samples": 4,
+#     "num_inference_steps": 4
+# }
 IMG_SIZE = 250
 
 def download_image(url):
@@ -47,7 +47,7 @@ EXAMPLES = [
 pipeline = ConceptAttentionFluxPipeline(model_name="flux-schnell", device="cuda")
 
 @spaces.GPU(duration=60)
-def process_inputs(prompt, input_image, word_list, seed):
+def process_inputs(prompt, input_image, word_list, seed, num_samples, layer_start_index, timestep_start_index):
     print("Processing inputs")
     prompt = prompt.strip()
     if not word_list.strip():
@@ -64,8 +64,6 @@ def process_inputs(prompt, input_image, word_list, seed):
             input_image = input_image.convert("RGB")
             input_image = input_image.resize((1024, 1024))
 
-        print(input_image.size)
-
         pipeline_output = pipeline.encode_image(
             image=input_image,
             concepts=concepts,
@@ -73,8 +71,10 @@ def process_inputs(prompt, input_image, word_list, seed):
             width=1024,
             height=1024,
             seed=seed,
-            num_samples=concept_attention_default_args["num_samples"]
+            num_samples=num_samples,
+            layer_indices=list(range(layer_start_index, 19)),
         )
+
     else:
         pipeline_output = pipeline.generate_image(
             prompt=prompt,
@@ -82,8 +82,9 @@ def process_inputs(prompt, input_image, word_list, seed):
             width=1024,
             height=1024,
             seed=seed,
-            timesteps=concept_attention_default_args["timesteps"],
-            num_inference_steps=concept_attention_default_args["num_inference_steps"],
+            timesteps=list(range(timestep_start_index, 4)),
+            num_inference_steps=4,
+            layer_indices=list(range(layer_start_index, 19)),
         )
 
     output_image = pipeline_output.image
@@ -105,32 +106,47 @@ def process_inputs(prompt, input_image, word_list, seed):
         html_elements.append(html)
 
     combined_html = "<div style='display: flex; flex-wrap: wrap; justify-content: center;'>" + "".join(html_elements) + "</div>"
-    return output_image, combined_html
+    return output_image, combined_html, None # None fills input_image with None
 
 
 with gr.Blocks(
     css="""
     .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
     .title { text-align: center; margin-bottom: 10px; }
-    .authors { text-align: center; margin-bottom: 20px; }
-    .affiliations { text-align: center; color: #666; margin-bottom: 40px; }
+    .authors { text-align: center; margin-bottom: 10px; }
+    .affiliations { text-align: center; color: #666; margin-bottom: 10px; }
     .content { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .section { border: 2px solid #ddd; border-radius: 10px; padding: 20px; }
+    .section {  }
+    .input-image { width: 100%; height: 200px; }
+    .abstract { text-align: center; margin-bottom: 40px; }
 """
 ) as demo:
     with gr.Column(elem_classes="container"):
         gr.Markdown("# ConceptAttention: Diffusion Transformers Learn Highly Interpretable Features", elem_classes="title")
-        gr.Markdown("**Alec Helbling**¹, **Tuna Meral**², **Ben Hoover**¹³, **Pinar Yanardag**², **Duen Horng (Polo) Chau**¹", elem_classes="authors")
-        gr.Markdown("¹Georgia Tech · ²Virginia Tech · ³IBM Research", elem_classes="affiliations")
+        gr.Markdown("### Alec Helbling¹, Tuna Meral², Ben Hoover¹³, Pinar Yanardag², Duen Horng (Polo) Chau¹", elem_classes="authors")
+        gr.Markdown("### ¹Georgia Tech · ²Virginia Tech · ³IBM Research", elem_classes="affiliations")
+        gr.Markdown(
+            """
+                We introduce ConceptAttention, an approach to interpreting the intermediate representations of diffusion transformers. 
+                The user just gives a list of textual concepts and ConceptAttention will produce a set of saliency maps depicting 
+                the location and intensity of these concepts in generated images. Check out our paper: [here](https://arxiv.org/abs/2502.04320). 
+            """,
+            elem_classes="abstract"
+        )
 
         with gr.Row(elem_classes="content"):
             with gr.Column(elem_classes="section"):
                 gr.Markdown("### Input")
                 prompt = gr.Textbox(label="Enter your prompt")
-                words = gr.Textbox(label="Enter words (comma-separated)")
-                seed = gr.Slider(minimum=0, maximum=10000, step=1, label="Seed", value=42)
-                gr.HTML("<div style='text-align: center;'> <h1> Or </h1> </div>")
-                image_input = gr.Image(type="numpy", label="Upload image (optional)")
+                words = gr.Textbox(label="Enter a list of concepts (comma-separated)")
+                # gr.HTML("<div style='text-align: center;'> <h3> Or </h3> </div>")
+                image_input = gr.Image(type="numpy", label="Upload image (optional)", elem_classes="input-image")
+                # Set up advanced options 
+                with gr.Accordion("Advanced Settings", open=False):
+                    seed = gr.Slider(minimum=0, maximum=10000, step=1, label="Seed", value=42)
+                    num_samples = gr.Slider(minimum=1, maximum=10, step=1, label="Number of Samples", value=4)
+                    layer_start_index = gr.Slider(minimum=0, maximum=18, step=1, label="Layer Start Index", value=10)
+                    timestep_start_index = gr.Slider(minimum=0, maximum=4, step=1, label="Timestep Start Index", value=2)
 
             with gr.Column(elem_classes="section"):
                 gr.Markdown("### Output")
@@ -144,8 +160,13 @@ with gr.Blocks(
 
         submit_btn.click(
             fn=process_inputs, 
-            inputs=[prompt, image_input, words, seed], outputs=[output_image, saliency_display]
+            inputs=[prompt, image_input, words, seed, num_samples, layer_start_index, timestep_start_index], outputs=[output_image, saliency_display, image_input]
         )
+        # .then(
+        #     fn=lambda component: gr.update(value=None),
+        #     inputs=[image_input],
+        #     outputs=[]
+        # )
 
         gr.Examples(examples=EXAMPLES, inputs=[prompt, image_input, words, seed], outputs=[output_image, saliency_display], fn=process_inputs, cache_examples=False)
 

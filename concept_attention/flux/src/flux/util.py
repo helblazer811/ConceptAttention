@@ -169,7 +169,7 @@ def load_t5(device: str | torch.device = "cuda", max_length: int = 512) -> HFEmb
     state_dict.update(load_sft(safe_tensor_1, device=str(device)))
     state_dict.update(load_sft(safe_tensor_2, device=str(device)))
     # Load the state dict
-    t5_encoder = T5EncoderModel(config=model_config).to(torch.bfloat16)
+    t5_encoder = T5EncoderModel(config=model_config).to(torch.bfloat16).to(device)
     t5_encoder.load_state_dict(state_dict, strict=False)
 
     # Load the tokenizer
@@ -182,7 +182,7 @@ def load_t5(device: str | torch.device = "cuda", max_length: int = 512) -> HFEmb
         tokenizer, 
         max_length=max_length, 
         output_key="last_hidden_state"
-    ).to(device).to(torch.bfloat16)
+    )
     # max length 64, 128, 256 and 512 should work (if your sequence is short enough)
     # Load the safe tensors model 
     # ckpt_path = hf_hub_download(configs["name"].repo_id, configs["name"].repo_flow)

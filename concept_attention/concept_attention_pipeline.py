@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import PIL
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 
 from concept_attention.binary_segmentation_baselines.raw_cross_attention import RawCrossAttentionBaseline, RawCrossAttentionSegmentationModel
 from concept_attention.binary_segmentation_baselines.raw_output_space import RawOutputSpaceBaseline, RawOutputSpaceSegmentationModel
@@ -49,6 +50,7 @@ class ConceptAttentionFluxPipeline():
             generator=self.flux_generator
         )
 
+    @torch.no_grad()
     def generate_image(
         self, 
         prompt: str,
