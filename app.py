@@ -120,17 +120,20 @@ with gr.Blocks(
                 placeholder="Enter your prompt", 
                 value=EXAMPLES[0][0],
                 scale=4,
-                show_label=False
+                show_label=False,
+                height="80px"
             )
             words = gr.Textbox(
                 label="Enter a list of concepts (comma-separated)", 
                 placeholder="Enter a list of concepts (comma-separated)", 
                 value=EXAMPLES[0][1],
                 scale=4,
-                show_label=False
+                show_label=False,
+                height="80px"
             )
             submit_btn = gr.Button(
                 "Run",
+                height="80px",
                 min_width="100px",
                 scale=1
             )
@@ -160,7 +163,7 @@ with gr.Blocks(
         gr.Examples(examples=EXAMPLES, inputs=[prompt, words, seed, layer_start_index, timestep_start_index], outputs=[gallery], fn=process_inputs, cache_examples=True)
 
         # Automatically process the first example on launch
-        demo.load(process_inputs, inputs=[prompt, words, seed, layer_start_index, timestep_start_index], outputs=[gallery])
+        # demo.load(process_inputs, inputs=[prompt, words, seed, layer_start_index, timestep_start_index], outputs=[gallery])
 
 
 if __name__ == "__main__":
