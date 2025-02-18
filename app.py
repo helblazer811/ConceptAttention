@@ -120,7 +120,7 @@ with gr.Blocks(
                 placeholder="Enter your prompt", 
                 value=EXAMPLES[0][0],
                 scale=4,
-                show_label=False,
+                show_label=True,
                 container=False
                 # height="80px"
             )
@@ -129,7 +129,7 @@ with gr.Blocks(
                 placeholder="Enter a list of concepts (comma-separated)", 
                 value=EXAMPLES[0][1],
                 scale=4,
-                show_label=False,
+                show_label=True,
                 container=False
                 # height="80px"
             )
