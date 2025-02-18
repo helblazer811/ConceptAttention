@@ -1,12 +1,12 @@
-import base64
-import io
 import spaces
 import gradio as gr
 from PIL import Image
+import math
 
 from concept_attention import ConceptAttentionFluxPipeline
 
 IMG_SIZE = 250
+COLUMNS = 5
 
 EXAMPLES = [
     [
@@ -65,32 +65,17 @@ def process_inputs(prompt, word_list, seed, layer_start_index, timestep_start_in
     heatmaps_and_labels = [(concept_heatmaps[concept_index], concepts[concept_index]) for concept_index in range(len(concepts))]
     all_images_and_labels = [(output_image, "Generated Image")] + heatmaps_and_labels
 
-    # combined_html = "<div style='display: flex; flex-wrap: wrap; justify-content: center;'>"
-    # # Show the output image 
-    # combined_html += f"""
-    #     <div style='text-align: center; margin: 5px; padding: 5px;'>
-    #         <img src='data:image/png;base64,{output_image}' style='width: {IMG_SIZE}px; display: inline-block; height: {IMG_SIZE}px;'>
-    #     </div>
-    # """
+    num_rows = math.ceil(len(all_images_and_labels) / COLUMNS)
 
-    # for concept, heatmap in zip(concepts, concept_heatmaps):
-    #     img = heatmap.resize((IMG_SIZE, IMG_SIZE), resample=Image.NEAREST)
-    #     buffered = io.BytesIO()
-    #     img.save(buffered, format="PNG")
-    #     img_str = base64.b64encode(buffered.getvalue()).decode()
+    gallery = gr.Gallery(
+        label="Generated images", 
+        show_label=True, 
+        columns=[COLUMNS], 
+        rows=[num_rows],
+        object_fit="contain"
+    )
 
-    #     html = f"""
-    #     <div style='text-align: center; margin: 5px; padding: 5px;  overflow-x: auto; white-space: nowrap;'>
-    #         <h1 style='margin-bottom: 10px;'>{concept}</h1>
-    #         <img src='data:image/png;base64,{img_str}' style='width: {IMG_SIZE}px; display: inline-block; height: {IMG_SIZE}px;'>
-    #     </div>
-    #     """
-
-    #     combined_html += html
-
-    # combined_html += "</div>"
-
-    return all_images_and_labels
+    return gallery
 
 with gr.Blocks(
     css="""
@@ -143,9 +128,9 @@ with gr.Blocks(
         gallery = gr.Gallery(
             label="Generated images", 
             show_label=True, 
-            elem_id="gallery",
-            columns=[5], 
-            # rows=[1],
+            # elem_id="gallery",
+            columns=[COLUMNS], 
+            rows=[1],
             object_fit="contain", 
             # height="auto"
         )
