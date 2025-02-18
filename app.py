@@ -114,14 +114,14 @@ with gr.Blocks(
             elem_classes="abstract"
         )
 
-        with gr.Row():
+        with gr.Row(scale=1):
             prompt = gr.Textbox(
                 label="Enter your prompt", 
                 placeholder="Enter your prompt", 
                 value=EXAMPLES[0][0],
                 scale=4,
                 show_label=False,
-                height="80px"
+                # height="80px"
             )
             words = gr.Textbox(
                 label="Enter a list of concepts (comma-separated)", 
@@ -129,7 +129,7 @@ with gr.Blocks(
                 value=EXAMPLES[0][1],
                 scale=4,
                 show_label=False,
-                height="80px"
+                # height="80px"
             )
             submit_btn = gr.Button(
                 "Run",
