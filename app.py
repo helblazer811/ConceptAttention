@@ -121,6 +121,7 @@ with gr.Blocks(
                 value=EXAMPLES[0][0],
                 scale=4,
                 show_label=False,
+                container=False
                 # height="80px"
             )
             words = gr.Textbox(
@@ -129,6 +130,7 @@ with gr.Blocks(
                 value=EXAMPLES[0][1],
                 scale=4,
                 show_label=False,
+                container=False
                 # height="80px"
             )
             submit_btn = gr.Button(
