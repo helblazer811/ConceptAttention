@@ -133,7 +133,6 @@ with gr.Blocks(
             )
             submit_btn = gr.Button(
                 "Run",
-                height="80px",
                 min_width="100px",
                 scale=1
             )
