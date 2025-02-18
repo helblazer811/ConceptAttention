@@ -114,7 +114,7 @@ with gr.Blocks(
             elem_classes="abstract"
         )
 
-        with gr.Row(equal_height=True, elem_classes="input-row"):
+        with gr.Row():
             prompt = gr.Textbox(
                 label="Enter your prompt", 
                 placeholder="Enter your prompt", 
