@@ -99,7 +99,6 @@ with gr.Blocks(
     .authors { text-align: center; margin-bottom: 10px; }
     .affiliations { text-align: center; color: #666; margin-bottom: 10px; }
     .abstract { text-align: center; margin-bottom: 40px; }
-    .input-row { height: 60px; }
 """
 ) as demo:
     with gr.Column(elem_classes="container"):
@@ -121,14 +120,14 @@ with gr.Blocks(
                 placeholder="Enter your prompt", 
                 value=EXAMPLES[0][0],
                 scale=4,
-                # show_label=False
+                show_label=False
             )
             words = gr.Textbox(
                 label="Enter a list of concepts (comma-separated)", 
                 placeholder="Enter a list of concepts (comma-separated)", 
                 value=EXAMPLES[0][1],
                 scale=4,
-                # show_label=False
+                show_label=False
             )
             submit_btn = gr.Button(
                 "Run",
