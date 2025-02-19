@@ -67,15 +67,7 @@ def process_inputs(prompt, word_list, seed, layer_start_index, timestep_start_in
 
     num_rows = math.ceil(len(all_images_and_labels) / COLUMNS)
 
-    gallery = gr.Gallery(
-        label="Generated images", 
-        show_label=True, 
-        columns=[COLUMNS], 
-        rows=[num_rows],
-        object_fit="contain"
-    )
-
-    return gallery
+    return all_images_and_labels, num_rows
 
 with gr.Blocks(
     css="""
@@ -143,10 +135,10 @@ with gr.Blocks(
         submit_btn.click(
             fn=process_inputs, 
             inputs=[prompt, words, seed, layer_start_index, timestep_start_index], 
-            outputs=[gallery]
+            outputs=[gallery, gallery.update(rows=True)]
         )
 
-        gr.Examples(examples=EXAMPLES, inputs=[prompt, words, seed, layer_start_index, timestep_start_index], outputs=[gallery], fn=process_inputs, cache_examples=False)
+        gr.Examples(examples=EXAMPLES, inputs=[prompt, words, seed, layer_start_index, timestep_start_index], outputs=[gallery, gallery.update(rows=True)], fn=process_inputs, cache_examples=False)
 
         # Automatically process the first example on launch
         # demo.load(process_inputs, inputs=[prompt, words, seed, layer_start_index, timestep_start_index], outputs=[gallery])
