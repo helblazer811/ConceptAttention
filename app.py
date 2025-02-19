@@ -5,7 +5,7 @@ import math
 
 from concept_attention import ConceptAttentionFluxPipeline
 
-IMG_SIZE = 250
+IMG_SIZE = 210
 COLUMNS = 5
 
 EXAMPLES = [
@@ -67,6 +67,8 @@ def process_inputs(prompt, word_list, seed, layer_start_index, timestep_start_in
 
     num_rows = math.ceil(len(all_images_and_labels) / COLUMNS)
 
+    print(num_rows)
+
     return all_images_and_labels, num_rows
 
 with gr.Blocks(
@@ -97,7 +99,7 @@ with gr.Blocks(
                 placeholder="Enter your prompt", 
                 value=EXAMPLES[0][0],
                 scale=4,
-                show_label=True,
+                # show_label=True,
                 container=False
                 # height="80px"
             )
@@ -106,7 +108,7 @@ with gr.Blocks(
                 placeholder="Enter a list of concepts (comma-separated)", 
                 value=EXAMPLES[0][1],
                 scale=4,
-                show_label=True,
+                # show_label=True,
                 container=False
                 # height="80px"
             )
@@ -116,15 +118,18 @@ with gr.Blocks(
                 scale=1
             )
 
+        num_rows_state = gr.State(value=1)  # Initial number of rows
+
         # generated_image = gr.Image(label="Generated Image", elem_classes="input-image")
         gallery = gr.Gallery(
             label="Generated images", 
             show_label=True, 
             # elem_id="gallery",
-            columns=[COLUMNS], 
-            rows=[1],
-            object_fit="contain", 
-            # height="auto"
+            columns=COLUMNS, 
+            rows=1,
+            # object_fit="contain", 
+            height="auto",
+            elem_classes="gallery"
         )
         with gr.Accordion("Advanced Settings", open=False):
             seed = gr.Slider(minimum=0, maximum=10000, step=1, label="Seed", value=42)
@@ -135,13 +140,19 @@ with gr.Blocks(
         submit_btn.click(
             fn=process_inputs, 
             inputs=[prompt, words, seed, layer_start_index, timestep_start_index], 
-            outputs=[gallery, gallery.update(rows=True)]
+            outputs=[gallery, num_rows_state]
         )
 
-        gr.Examples(examples=EXAMPLES, inputs=[prompt, words, seed, layer_start_index, timestep_start_index], outputs=[gallery, gallery.update(rows=True)], fn=process_inputs, cache_examples=False)
+        gr.Examples(examples=EXAMPLES, inputs=[prompt, words, seed, layer_start_index, timestep_start_index], outputs=[gallery, num_rows_state], fn=process_inputs, cache_examples=False)
+
+        # num_rows_state.change(
+        #     fn=lambda rows: gr.Gallery.update(rows=int(rows)),
+        #     inputs=[num_rows_state],
+        #     outputs=[gallery]
+        # )
 
         # Automatically process the first example on launch
-        # demo.load(process_inputs, inputs=[prompt, words, seed, layer_start_index, timestep_start_index], outputs=[gallery])
+        demo.load(process_inputs, inputs=[prompt, words, seed, layer_start_index, timestep_start_index], outputs=[gallery, num_rows_state])
 
 
 if __name__ == "__main__":
