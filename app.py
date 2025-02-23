@@ -4,6 +4,8 @@ from PIL import Image
 import math
 import io
 import base64
+import subprocess
+import os
 
 from concept_attention import ConceptAttentionFluxPipeline
 
@@ -271,6 +273,8 @@ with gr.Blocks(
         )
 
 if __name__ == "__main__":
+    if os.path.exists("/data-nvme/zerogpu-offload"):
+        subprocess.run("rm -rf /data-nvme/zerogpu-offload/*", env={}, shell=True)
     demo.launch()
     #     share=True,
     #     server_name="0.0.0.0",
