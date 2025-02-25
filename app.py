@@ -132,14 +132,14 @@ with gr.Blocks(
             .svg-container {
                 min-width: 200px;
                 width: 300px;
-                padding-top: 400px;
+                padding-top: 420px;
             }
         }
          @media (min-width: 1530px) {
             .svg-container {
                 min-width: 200px;
                 width: 300px;
-                padding-top: 370px;
+                padding-top: 400px;
             }
         }
 
