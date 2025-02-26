@@ -228,7 +228,7 @@ with gr.Blocks(
                             elem_classes="input-column-label"
                         )
                         prompt = gr.Dropdown(
-                            ["A dog by a tree", "A dragon", "A hot air balloon"], 
+                            ["A dog by a tree", "A man on the beach", "A hot air balloon"], 
                             container=False,
                             allow_custom_value=True,
                             elem_classes="input"
