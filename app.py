@@ -21,7 +21,7 @@ def update_default_concepts(prompt):
 
     return gr.update(value=default_concepts.get(prompt, []))
 
-pipeline = ConceptAttentionFluxPipeline(model_name="flux-schnell") # , device="cuda:2", offload_model=True)
+pipeline = ConceptAttentionFluxPipeline(model_name="flux-schnell") # , offload_model=True) # , device="cuda:2", offload_model=True)
 
 def convert_pil_to_bytes(img):
     img = img.resize((IMG_SIZE, IMG_SIZE), resample=Image.NEAREST)
@@ -33,45 +33,49 @@ def convert_pil_to_bytes(img):
 
 @spaces.GPU(duration=60)
 def process_inputs(prompt, concepts, seed, layer_start_index, timestep_start_index):
-    if not prompt:
-        raise gr.exceptions.InputError("prompt", "Please enter a prompt")
+    try:
+        if not prompt:
+            raise gr.Error("Please enter a prompt", duration=10)
 
-    if not prompt.strip():
-        raise gr.exceptions.InputError("prompt", "Please enter a prompt")
+        if not prompt.strip():
+            raise gr.Error("Please enter a prompt", duration=10)
 
-    prompt = prompt.strip()
+        prompt = prompt.strip()
 
-    if len(concepts) == 0:
-        raise gr.exceptions.InputError("words", "Please enter at least 1 concept")
-    
-    if len(concepts) > 9:
-        raise gr.exceptions.InputError("words", "Please enter at most 9 concepts")
+        if len(concepts) == 0:
+            raise gr.Error("Please enter at least 1 concept", duration=10)
+        
+        if len(concepts) > 9:
+            raise gr.Error("Please enter at most 9 concepts", duration=10)
 
-    pipeline_output = pipeline.generate_image(
-        prompt=prompt,
-        concepts=concepts,
-        width=1024,
-        height=1024,
-        seed=seed,
-        timesteps=list(range(timestep_start_index, 4)),
-        num_inference_steps=4,
-        layer_indices=list(range(layer_start_index, 19)),
-        softmax=True if len(concepts) > 1 else False
-    )
+        pipeline_output = pipeline.generate_image(
+            prompt=prompt,
+            concepts=concepts,
+            width=1024,
+            height=1024,
+            seed=seed,
+            timesteps=list(range(timestep_start_index, 4)),
+            num_inference_steps=4,
+            layer_indices=list(range(layer_start_index, 19)),
+            softmax=True if len(concepts) > 1 else False
+        )
 
-    output_image = pipeline_output.image
+        output_image = pipeline_output.image
 
-    output_space_heatmaps = pipeline_output.concept_heatmaps
-    output_space_heatmaps = [heatmap.resize((IMG_SIZE, IMG_SIZE), resample=Image.NEAREST) for heatmap in output_space_heatmaps]
-    output_space_maps_and_labels = [(output_space_heatmaps[concept_index], concepts[concept_index]) for concept_index in range(len(concepts))]
+        output_space_heatmaps = pipeline_output.concept_heatmaps
+        output_space_heatmaps = [heatmap.resize((IMG_SIZE, IMG_SIZE), resample=Image.NEAREST) for heatmap in output_space_heatmaps]
+        output_space_maps_and_labels = [(output_space_heatmaps[concept_index], concepts[concept_index]) for concept_index in range(len(concepts))]
 
-    cross_attention_heatmaps = pipeline_output.cross_attention_maps
-    cross_attention_heatmaps = [heatmap.resize((IMG_SIZE, IMG_SIZE), resample=Image.NEAREST) for heatmap in cross_attention_heatmaps]
-    cross_attention_maps_and_labels = [(cross_attention_heatmaps[concept_index], concepts[concept_index]) for concept_index in range(len(concepts))]
+        cross_attention_heatmaps = pipeline_output.cross_attention_maps
+        cross_attention_heatmaps = [heatmap.resize((IMG_SIZE, IMG_SIZE), resample=Image.NEAREST) for heatmap in cross_attention_heatmaps]
+        cross_attention_maps_and_labels = [(cross_attention_heatmaps[concept_index], concepts[concept_index]) for concept_index in range(len(concepts))]
 
-    return output_image, \
-        gr.update(value=output_space_maps_and_labels, columns=len(output_space_maps_and_labels)), \
-        gr.update(value=cross_attention_maps_and_labels, columns=len(cross_attention_maps_and_labels))
+        return output_image, \
+            gr.update(value=output_space_maps_and_labels, columns=len(output_space_maps_and_labels)), \
+            gr.update(value=cross_attention_maps_and_labels, columns=len(cross_attention_maps_and_labels))
+
+    except gr.Error as e:
+        return None, gr.update(value=[], columns=1), gr.update(value=[], columns=1)
 
 with gr.Blocks(
     css="""
@@ -100,7 +104,7 @@ with gr.Blocks(
         }
         .input-column-label {}
         .gallery {
-            height: 200px;
+            height: 220px;
         }
         .run-button-column {
             width: 100px !important;
@@ -276,7 +280,7 @@ with gr.Blocks(
                             # columns=3, 
                             rows=1,
                             object_fit="contain", 
-                            # height="200px",
+                            height="200px",
                             elem_classes="gallery",
                             elem_id="concept-attention-gallery",
                             # scale=4
@@ -288,7 +292,7 @@ with gr.Blocks(
                             # columns=3, 
                             rows=1,
                             object_fit="contain", 
-                            # height="200px",
+                            height="200px",
                             elem_classes="gallery",
                             # scale=4
                         )
