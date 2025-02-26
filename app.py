@@ -21,7 +21,7 @@ def update_default_concepts(prompt):
 
     return gr.update(value=default_concepts.get(prompt, []))
 
-pipeline = ConceptAttentionFluxPipeline(model_name="flux-schnell", device="cuda:2", offload_model=True)
+pipeline = ConceptAttentionFluxPipeline(model_name="flux-schnell") # , device="cuda:2", offload_model=True)
 
 def convert_pil_to_bytes(img):
     img = img.resize((IMG_SIZE, IMG_SIZE), resample=Image.NEAREST)
