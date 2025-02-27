@@ -125,6 +125,7 @@ def encode_image(
         Encodes a PIL image to the VAE latent space and adds noise to it
     """
     if isinstance(image, PIL.Image.Image):
+        image = image.convert("RGB")
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Lambda(lambda x: 2.0 * x - 1.0),

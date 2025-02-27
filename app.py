@@ -45,6 +45,12 @@ def encode_image(image, prompt, concepts, seed, layer_start_index, noise_timeste
         if len(concepts) > 9:
             raise gr.Error("Please enter at most 9 concepts", duration=10)
 
+        print(f"Num samples: {num_samples}")
+        print(f"Layer start index: {layer_start_index}")
+        print(f"Noise timestep: {noise_timestep}")
+        print(image)
+        image = image.convert("RGB")
+
         pipeline_output = pipeline.encode_image(
             image=image,
             prompt=prompt,
@@ -318,7 +324,7 @@ with gr.Blocks(
                     with gr.Column(scale=1, min_width=250):
                         generated_image = gr.Image(
                             elem_classes="generated-image",
-                            show_label=False
+                            show_label=False,
                         )
                         
                     with gr.Column(scale=4):
@@ -419,7 +425,9 @@ with gr.Blocks(
                             input_image = gr.Image(
                                 elem_classes="generated-image",
                                 show_label=False,
-                                interactive=True
+                                interactive=True,
+                                type="pil",
+                                image_mode="RGB",
                             )
                             
                         with gr.Column(scale=4):

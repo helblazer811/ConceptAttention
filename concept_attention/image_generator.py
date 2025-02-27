@@ -171,7 +171,7 @@ class FluxGenerator():
             torch.cuda.empty_cache()
             self.model = self.model.to(self.device)
         # denoise initial noise
-        x, intermediate_images, cross_attention_maps, concept_attention_maps = denoise(
+        x, _, concept_attention_dict = denoise(
             self.model, 
             **inp, 
             timesteps=timesteps, 
@@ -203,4 +203,4 @@ class FluxGenerator():
 
         img = Image.fromarray((127.5 * (x + 1.0)).cpu().byte().numpy())
 
-        return img, cross_attention_maps, concept_attention_maps
+        return img, concept_attention_dict

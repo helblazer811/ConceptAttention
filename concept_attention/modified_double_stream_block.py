@@ -1,3 +1,4 @@
+from concept_attention.utils import linear_normalization
 import torch
 from torch import nn, Tensor
 import einops
@@ -77,6 +78,7 @@ class ModifiedDoubleStreamBlock(nn.Module):
         concept_vec: Tensor,
         concept_pe: Tensor,
         joint_attention_kwargs=None,
+        normalize_concepts=True,
         **kwargs
     ) -> tuple[Tensor, Tensor]:
         assert concept_vec is not None, "Concept vectors must be provided for this implementation."
@@ -175,19 +177,26 @@ class ModifiedDoubleStreamBlock(nn.Module):
             concept_attn = einops.rearrange(concept_attn, "B H L D -> B L (H D)")
             img_attn = einops.rearrange(img_attn, "B H L D -> B L (H D)")
 
-        # Compute the cross attentions
-        cross_attention_maps = einops.einsum(
-            concept_q,
-            img_q,
-            "batch head concepts dim, batch had patches dim -> batch head concepts patches"
-        )
-        cross_attention_maps = einops.reduce(cross_attention_maps, "batch head concepts patches -> batch concepts patches", reduction="mean")
-        # Compute the concept attentions
-        concept_attention_maps = einops.einsum(
-            concept_attn,
-            img_attn,
-            "batch concepts dim, batch patches dim -> batch concepts patches"
-        )
+        concept_attention_dict = {
+            "output_space_concept_vectors": concept_attn,
+            "output_space_image_vectors": img_attn,
+            "cross_attention_concept_vectors": concept_q,
+            "cross_attention_image_vectors": img_q
+        }
+
+        # # Compute the cross attentions
+        # cross_attention_maps = einops.einsum(
+        #     concept_q,
+        #     img_q,
+        #     "batch head concepts dim, batch had patches dim -> batch head concepts patches"
+        # )
+        # cross_attention_maps = einops.reduce(cross_attention_maps, "batch head concepts patches -> batch concepts patches", reduction="mean")
+        # # Compute the concept attentions
+        # concept_attention_maps = einops.einsum(
+        #     concept_attn,
+        #     img_attn,
+        #     "batch concepts dim, batch patches dim -> batch concepts patches"
+        # )
         # Do the block updates
         # Calculate the img blocks
         img = img + img_mod1.gate * self.img_attn.proj(img_attn)
@@ -200,4 +209,4 @@ class ModifiedDoubleStreamBlock(nn.Module):
         concepts = concepts + concept_mod1.gate * self.txt_attn.proj(concept_attn)
         concepts = concepts + concept_mod2.gate * self.txt_mlp((1 + concept_mod2.scale) * self.txt_norm2(concepts) + concept_mod2.shift)
 
-        return img, txt, concepts, cross_attention_maps, concept_attention_maps
+        return img, txt, concepts, concept_attention_dict
