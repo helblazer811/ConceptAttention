@@ -21,7 +21,7 @@ def update_default_concepts(prompt):
 
     return gr.update(value=default_concepts.get(prompt, []))
 
-pipeline = ConceptAttentionFluxPipeline(model_name="flux-schnell") # , offload_model=True) # , device="cuda:2", offload_model=True)
+pipeline = ConceptAttentionFluxPipeline(model_name="flux-schnell", offload_model=True) # , device="cuda:0") # , offload_model=True)
 
 def convert_pil_to_bytes(img):
     img = img.resize((IMG_SIZE, IMG_SIZE), resample=Image.NEAREST)
@@ -32,7 +32,53 @@ def convert_pil_to_bytes(img):
     return img_str
 
 @spaces.GPU(duration=60)
-def process_inputs(prompt, concepts, seed, layer_start_index, timestep_start_index):
+def encode_image(image, prompt, concepts, seed, layer_start_index, noise_timestep, num_samples):
+    try:
+        if not prompt:
+            prompt = ""
+
+        prompt = prompt.strip()
+
+        if len(concepts) == 0:
+            raise gr.Error("Please enter at least 1 concept", duration=10)
+        
+        if len(concepts) > 9:
+            raise gr.Error("Please enter at most 9 concepts", duration=10)
+
+        pipeline_output = pipeline.encode_image(
+            image=image,
+            prompt=prompt,
+            concepts=concepts,
+            width=1024,
+            height=1024,
+            seed=seed,
+            num_samples=num_samples,
+            noise_timestep=noise_timestep,
+            num_steps=4,
+            layer_indices=list(range(layer_start_index, 19)),
+            softmax=True if len(concepts) > 1 else False
+        )
+
+        output_image = pipeline_output.image
+
+        output_space_heatmaps = pipeline_output.concept_heatmaps
+        output_space_heatmaps = [heatmap.resize((IMG_SIZE, IMG_SIZE), resample=Image.NEAREST) for heatmap in output_space_heatmaps]
+        output_space_maps_and_labels = [(output_space_heatmaps[concept_index], concepts[concept_index]) for concept_index in range(len(concepts))]
+
+        cross_attention_heatmaps = pipeline_output.cross_attention_maps
+        cross_attention_heatmaps = [heatmap.resize((IMG_SIZE, IMG_SIZE), resample=Image.NEAREST) for heatmap in cross_attention_heatmaps]
+        cross_attention_maps_and_labels = [(cross_attention_heatmaps[concept_index], concepts[concept_index]) for concept_index in range(len(concepts))]
+
+        return output_image, \
+            gr.update(value=output_space_maps_and_labels, columns=len(output_space_maps_and_labels)), \
+            gr.update(value=cross_attention_maps_and_labels, columns=len(cross_attention_maps_and_labels))
+
+    except gr.Error as e:
+        return None, gr.update(value=[], columns=1), gr.update(value=[], columns=1)
+
+
+@spaces.GPU(duration=60)
+def generate_image(prompt, concepts, seed, layer_start_index, timestep_start_index):
     try:
         if not prompt:
             raise gr.Error("Please enter a prompt", duration=10)
@@ -212,18 +258,19 @@ with gr.Blocks(
 
     # with gr.Column(elem_classes="container"):
 
+    with gr.Row(elem_classes="container", scale=8):
+        
+        with gr.Column(elem_classes="application-content", scale=10):
 
-        with gr.Row(elem_classes="container", scale=8):
-            
-            with gr.Column(elem_classes="application-content", scale=10):
+            with gr.Row(scale=3, elem_classes="header"):
+                gr.HTML("""
+                    <h1 id='title'> ConceptAttention </h1>
+                    <h1 id='subtitle'> Visualize Any Concepts in Your Generated Images </h1>
+                    <h1 id='abstract'> Interpret diffusion models with precise, high-quality heatmaps. </h1>
+                    <h1 id='links'> <a href='https://arxiv.org/abs/2502.04320'> Paper </a> | <a href='https://github.com/helblazer811/ConceptAttention'> Code </a> </h1>
+                """)
 
-                with gr.Row(scale=3, elem_classes="header"):
-                    gr.HTML("""
-                        <h1 id='title'> ConceptAttention </h1>
-                        <h1 id='subtitle'> Visualize Any Concepts in Your Generated Images </h1>
-                        <h1 id='abstract'> Interpret diffusion models with precise, high-quality heatmaps. </h1>
-                        <h1 id='links'> <a href='https://arxiv.org/abs/2502.04320'> Paper </a> | <a href='https://github.com/helblazer811/ConceptAttention'> Code </a> </h1>
-                    """)
+            with gr.Tab(label="Generate Image"):
 
                 with gr.Row(elem_classes="input-row", scale=2):
                     with gr.Column(scale=4, elem_classes="input-column", min_width=250):
@@ -231,6 +278,7 @@ with gr.Blocks(
                             "Write a Prompt",
                             elem_classes="input-column-label"
                         )
+                        
                         prompt = gr.Dropdown(
                             ["A dog by a tree", "A man on the beach", "A hot air balloon"], 
                             container=False,
@@ -303,7 +351,7 @@ with gr.Blocks(
                     timestep_start_index = gr.Slider(minimum=0, maximum=4, step=1, label="Timestep Start Index", value=2)
 
                 submit_btn.click(
-                    fn=process_inputs, 
+                    fn=generate_image, 
                     inputs=[prompt, concepts, seed, layer_start_index, timestep_start_index], 
                     outputs=[generated_image, concept_attention_gallery, cross_attention_gallery]
                 )
@@ -312,24 +360,126 @@ with gr.Blocks(
 
                 # Automatically process the first example on launch
                 demo.load(
-                    process_inputs, 
+                    generate_image, 
                     inputs=[prompt, concepts, seed, layer_start_index, timestep_start_index], 
                     outputs=[generated_image, concept_attention_gallery, cross_attention_gallery]
                 )
 
-            with gr.Column(scale=2, min_width=200, elem_classes="svg-column"):
+            with gr.Tab(label="Explain a Real Image"):
 
-                with gr.Row(scale=8):
-                    gr.HTML("<div></div>")
+                    with gr.Row(elem_classes="input-row", scale=2):
+                        with gr.Column(scale=4, elem_classes="input-column", min_width=250):
+                            gr.HTML(
+                                "Write a Prompt (Optional)",
+                                elem_classes="input-column-label"
+                            )
+                            # prompt = gr.Dropdown(
+                            #     ["A dog by a tree", "A man on the beach", "A hot air balloon"], 
+                            #     container=False,
+                            #     allow_custom_value=True,
+                            #     elem_classes="input"
+                            # )
 
-                with gr.Row(scale=4, elem_classes="svg-container"):
-                    concept_attention_callout_svg = gr.HTML(
-                        "<img src='/gradio_api/file=ConceptAttentionCallout.svg' id='concept-attention-callout-svg'/>",
-                        # container=False,
+                            prompt = gr.Textbox(
+                                placeholder="Write a prompt (Optional)",
+                                container=False,
+                                elem_classes="input"
+                            )
+
+                        with gr.Column(scale=7, elem_classes="input-column"):
+                            gr.HTML(
+                                "Select or Write Concepts",
+                                elem_classes="input-column-label"
+                            )
+                            concepts = gr.Dropdown(
+                                ["dog", "grass", "tree", "dragon", "sky", "rock", "cloud", "balloon", "water", "background"], 
+                                value=["dog", "grass", "tree", "background"], 
+                                multiselect=True, 
+                                label="Concepts",
+                                container=False,
+                                allow_custom_value=True,
+                                # scale=4,
+                                elem_classes="input",
+                                max_choices=5
+                            )
+
+                        with gr.Column(scale=1, min_width=100, elem_classes="input-column run-button-column"):
+                            gr.HTML(
+                                "&#8203;",
+                                elem_classes="input-column-label"
+                            )
+                            submit_btn = gr.Button(
+                                "Run",
+                                elem_classes="input"
+                            )
+
+                    with gr.Row(elem_classes="gallery-container", scale=8):
+
+                        with gr.Column(scale=1, min_width=250):
+                            input_image = gr.Image(
+                                elem_classes="generated-image",
+                                show_label=False,
+                                interactive=True
+                            )
+                            
+                        with gr.Column(scale=4):
+                            concept_attention_gallery = gr.Gallery(
+                                label="Concept Attention (Ours)", 
+                                show_label=True, 
+                                # columns=3, 
+                                rows=1,
+                                object_fit="contain", 
+                                height="200px",
+                                elem_classes="gallery",
+                                elem_id="concept-attention-gallery",
+                                # scale=4
+                            )
+
+                            cross_attention_gallery = gr.Gallery(
+                                label="Cross Attention", 
+                                show_label=True, 
+                                # columns=3, 
+                                rows=1,
+                                object_fit="contain", 
+                                height="200px",
+                                elem_classes="gallery",
+                                # scale=4
+                            )
+
+                    with gr.Accordion("Advanced Settings", open=False):
+                        seed = gr.Slider(minimum=0, maximum=10000, step=1, label="Seed", value=42)
+                        num_samples = gr.Slider(minimum=1, maximum=10, step=1, label="Number of Samples", value=4)
+                        layer_start_index = gr.Slider(minimum=0, maximum=18, step=1, label="Layer Start Index", value=10)
+                        noise_timestep = gr.Slider(minimum=0, maximum=4, step=1, label="Noise Timestep", value=2)
+
+                    submit_btn.click(
+                        fn=encode_image, 
+                        inputs=[input_image, prompt, concepts, seed, layer_start_index, noise_timestep, num_samples], 
+                        outputs=[input_image, concept_attention_gallery, cross_attention_gallery]
                     )
 
-                with gr.Row(scale=4):
-                    gr.HTML("<div></div>")
+                    # # Automatically process the first example on launch
+                    # demo.load(
+                    #     encode_image, 
+                    #     inputs=[input_image, prompt, concepts, seed, layer_start_index, noise_timestep, num_samples], 
+                    #     outputs=[input_image, concept_attention_gallery, cross_attention_gallery]
+                    # )
+
+        with gr.Column(scale=2, min_width=200, elem_classes="svg-column"):
+
+            with gr.Row(scale=8):
+                gr.HTML("<div></div>")
+
+            with gr.Row(scale=4, elem_classes="svg-container"):
+                concept_attention_callout_svg = gr.HTML(
+                    "<img src='/gradio_api/file=ConceptAttentionCallout.svg' id='concept-attention-callout-svg'/>",
+                    # container=False,
+                )
+
+            with gr.Row(scale=4):
+                gr.HTML("<div></div>")
+
+    
 
 if __name__ == "__main__":
     if os.path.exists("/data-nvme/zerogpu-offload"):
