@@ -354,8 +354,7 @@ class ConceptAttentionFluxPipeline():
         #     w=64
         # )
         concept_heatmaps = concept_heatmaps.to(torch.float32).detach().cpu().numpy()[0]
-        # cross_attention_maps = cross_attention_maps.to(torch.float32).detach().cpu().numpy()[0]
-        cross_attention_maps = concept_heatmaps
+        cross_attention_maps = cross_attention_maps.to(torch.float32).detach().cpu().numpy()[0]
         # Convert the torch heatmaps to PIL images.
         if return_pil_heatmaps:
             concept_heatmaps_min = concept_heatmaps.min()

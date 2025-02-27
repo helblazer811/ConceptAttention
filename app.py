@@ -45,10 +45,6 @@ def encode_image(image, prompt, concepts, seed, layer_start_index, noise_timeste
         if len(concepts) > 9:
             raise gr.Error("Please enter at most 9 concepts", duration=10)
 
-        print(f"Num samples: {num_samples}")
-        print(f"Layer start index: {layer_start_index}")
-        print(f"Noise timestep: {noise_timestep}")
-        print(image)
         image = image.convert("RGB")
 
         pipeline_output = pipeline.encode_image(
