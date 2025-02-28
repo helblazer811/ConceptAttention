@@ -69,14 +69,27 @@ def encode_image(image, prompt, concepts, seed, layer_start_index, noise_timeste
 
         cross_attention_heatmaps = pipeline_output.cross_attention_maps
         cross_attention_heatmaps = [heatmap.resize((IMG_SIZE, IMG_SIZE), resample=Image.NEAREST) for heatmap in cross_attention_heatmaps]
-        cross_attention_maps_and_labels = [(cross_attention_heatmaps[concept_index], concepts[concept_index]) for concept_index in range(len(concepts))]
+        cross_attention_maps_and_labels = []
+        prompt_tokens = prompt.split()
+        for concept_index in range(len(concepts)):
+            concept = concepts[concept_index]
+            if concept in prompt_tokens:
+                cross_attention_maps_and_labels.append(
+                    (cross_attention_heatmaps[concept_index], concept)
+                )
+            else:
+                # Exclude this concept because it is only generated due to ConceptAttention's causal attention mechanism
+                empty_image = Image.new("RGB", (IMG_SIZE, IMG_SIZE), (39, 39, 42))
+                cross_attention_maps_and_labels.append(
+                    (empty_image, concept)
+                )
 
         return output_image, \
             gr.update(value=output_space_maps_and_labels, columns=len(output_space_maps_and_labels)), \
             gr.update(value=cross_attention_maps_and_labels, columns=len(cross_attention_maps_and_labels))
 
     except gr.Error as e:
-        return None, gr.update(value=[], columns=1), gr.update(value=[], columns=1)
+        return None, gr.update(value=[], columns=1) # , gr.update(value=[], columns=1)
 
 
 @spaces.GPU(duration=60)
@@ -116,7 +129,20 @@ def generate_image(prompt, concepts, seed, layer_start_index, timestep_start_ind
 
         cross_attention_heatmaps = pipeline_output.cross_attention_maps
         cross_attention_heatmaps = [heatmap.resize((IMG_SIZE, IMG_SIZE), resample=Image.NEAREST) for heatmap in cross_attention_heatmaps]
-        cross_attention_maps_and_labels = [(cross_attention_heatmaps[concept_index], concepts[concept_index]) for concept_index in range(len(concepts))]
+        cross_attention_maps_and_labels = []
+        prompt_tokens = prompt.split()
+        for concept_index in range(len(concepts)):
+            concept = concepts[concept_index]
+            if concept in prompt_tokens:
+                cross_attention_maps_and_labels.append(
+                    (cross_attention_heatmaps[concept_index], concept)
+                )
+            else:
+                # Exclude this concept because it is only generated due to ConceptAttention's causal attention mechanism
+                empty_image = Image.new("RGB", (IMG_SIZE, IMG_SIZE), (39, 39, 42))
+                cross_attention_maps_and_labels.append(
+                    (empty_image, concept)
+                )
 
         return output_image, \
             gr.update(value=output_space_maps_and_labels, columns=len(output_space_maps_and_labels)), \
@@ -145,11 +171,7 @@ with gr.Blocks(
         .input {
             height: 47px;
         }
-        .input-column {
-            flex-direction: column;
-            gap: 0px;
-            height: 100%;
-        }
+        
         .input-column-label {}
         .gallery {
             height: 220px;
@@ -162,51 +184,48 @@ with gr.Blocks(
             scrollbar-width: thin;
             scrollbar-color: grey black;
         }
-       
-        /* Show only on screens wider than 768px (adjust as needed) 
-        @media (min-width: 1024px) {
-            .svg-container {
-                min-width: 150px;
-                width: 200px;
-                padding-top: 540px;
-            }
-        }
 
         @media (min-width: 1280px) {
             .svg-container {
-                min-width: 200px;
-                width: 300px;
-                padding-top: 420px;
-            }
-        }
-         @media (min-width: 1530px) {
-            .svg-container {
-                min-width: 200px; 
-                width: 300px;
-                padding-top: 400px;
-            }
-        }
-
-        */
-
-        @media (min-width: 1024px) {
-            .svg-container {
                 min-width: 250px;
+                display: flex;
+                flex-direction: column;
+                padding-top: 340px;
             }
-            #concept-attention-callout-svg {
+            .callout {
                 width: 250px;
             }
+            .input-row {
+                height: 100px;
+            }
+            .input-column {
+                flex-direction: column;
+                gap: 0px;
+                height: 100%;
+            }
         }
 
-
-        @media (max-width: 1024px) {
+        @media (max-width: 1280px) {
             .svg-container {
                 display: none !important;
             }
-            #concept-attention-callout-svg {
+            .callout {
                 display: none;
             }
         }
+
+        /*
+            @media (max-width: 1024px) {
+                .svg-container {
+                    display: none !important;
+                    display: flex;
+                    flex-direction: column;
+                }
+                .callout {
+                    display: none;
+                }
+            }
+        */
 
         .header {
             display: flex;
@@ -241,11 +260,6 @@ with gr.Blocks(
             text-decoration: none;
         }
 
-        .svg-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
 
         .caption-label {
             font-size: 1.15em;
@@ -415,8 +429,7 @@ with gr.Blocks(
                                 elem_classes="input"
                             )
 
-                    with gr.Row(elem_classes="gallery-container", scale=8):
-
+                    with gr.Row(elem_classes="gallery-container", scale=8, equal_height=True):
                         with gr.Column(scale=1, min_width=250):
                             input_image = gr.Image(
                                 elem_classes="generated-image",
@@ -424,9 +437,10 @@ with gr.Blocks(
                                 interactive=True,
                                 type="pil",
                                 image_mode="RGB",
+                                scale=1
                             )
                             
-                        with gr.Column(scale=4):
+                        with gr.Column(scale=2):
                             concept_attention_gallery = gr.Gallery(
                                 label="Concept Attention (Ours)", 
                                 show_label=True, 
@@ -438,7 +452,6 @@ with gr.Blocks(
                                 elem_id="concept-attention-gallery",
                                 # scale=4
                             )
-
                             cross_attention_gallery = gr.Gallery(
                                 label="Cross Attention", 
                                 show_label=True, 
@@ -476,7 +489,11 @@ with gr.Blocks(
 
             with gr.Row(scale=4, elem_classes="svg-container"):
                 concept_attention_callout_svg = gr.HTML(
-                    "<img src='/gradio_api/file=ConceptAttentionCallout.svg' id='concept-attention-callout-svg'/>",
+                    "<img src='/gradio_api/file=ConceptAttentionCallout.svg' class='callout'/>",
+                    # container=False,
+                )
+                cross_attention_callout_svg = gr.HTML(
+                    "<img src='/gradio_api/file=CrossAttentionCallout.svg' class='callout'/>",
                     # container=False,
                 )
 

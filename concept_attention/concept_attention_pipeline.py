@@ -29,13 +29,11 @@ def compute_heatmaps_from_vectors(
     layer_indices: list[int],
     timesteps: list[int] = list(range(4)),
     softmax: bool = True,
-    normalize_concepts: bool = True
+    normalize_concepts: bool = False
 ):
     """
         Accepts image vectors and concept vectors. These can be from cross attentions or attention outputs.  
     """
-    print(f"Image vectors shape: {image_vectors.shape}")
-    print(f"Concept vectors shape: {concept_vectors.shape}")
     # Check if there are heads in the input 
     if len(image_vectors.shape) == 6: 
         # Collapse the had dimension
@@ -139,6 +137,25 @@ class ConceptAttentionFluxPipeline():
             guidance=guidance,
         )
         
+        # # cross_attention_maps = concept_attention_dict["cross_attention_maps"]
+        # # Apply softmax
+        # if softmax:
+        #     cross_attention_maps = torch.nn.functional.softmax(cross_attention_maps, dim=-2)
+        # # Pull out the timesteps and layers
+        # cross_attention_maps = cross_attention_maps[timesteps]
+        # cross_attention_maps = cross_attention_maps[:, layer_indices]
+        # # Average over time, had, and layers
+        # cross_attention_maps = einops.reduce(
+        #     cross_attention_maps,
+        #     "time layers batch head concepts patches -> batch concepts patches",
+        #     reduction="mean"
+        # )
+        # cross_attention_maps = einops.rearrange(
+        #     cross_attention_maps,
+        #     "batch concepts (h w) -> batch concepts h w",
+        #     h=64,
+        #     w=64
+        # )
         cross_attention_maps = compute_heatmaps_from_vectors(
             concept_attention_dict["cross_attention_image_vectors"],
             concept_attention_dict["cross_attention_concept_vectors"],
@@ -146,6 +163,7 @@ class ConceptAttentionFluxPipeline():
             timesteps=timesteps,
             softmax=softmax
         )
+        # Compute concept the heatmaps
         concept_heatmaps = compute_heatmaps_from_vectors(
             concept_attention_dict["output_space_image_vectors"],
             concept_attention_dict["output_space_concept_vectors"],
@@ -223,8 +241,9 @@ class ConceptAttentionFluxPipeline():
         combined_concept_attention_dict = {
             "cross_attention_image_vectors": [],
             "cross_attention_concept_vectors": [],
+            # "cross_attention_maps": [],
             "output_space_image_vectors": [],
-            "output_space_concept_vectors": []
+            "output_space_concept_vectors": [],
         }
         print("Sampling")
         for i in tqdm(range(num_samples)):
@@ -306,6 +325,26 @@ class ConceptAttentionFluxPipeline():
             timesteps=timesteps,
             softmax=softmax
         )
+
+        # cross_attention_maps = concept_attention_dict["cross_attention_maps"]
+        # # Apply softmax
+        # if softmax:
+        #     cross_attention_maps = torch.nn.functional.softmax(cross_attention_maps, dim=-2)
+        # # Pull out the timesteps and layers
+        # cross_attention_maps = cross_attention_maps[timesteps]
+        # cross_attention_maps = cross_attention_maps[:, layer_indices]
+        # # Average over time, had, and layers
+        # cross_attention_maps = einops.reduce(
+        #     cross_attention_maps,
+        #     "time layers batch head concepts patches -> batch concepts patches",
+        #     reduction="mean"
+        # )
+        # cross_attention_maps = einops.rearrange(
+        #     cross_attention_maps,
+        #     "batch concepts (h w) -> batch concepts h w",
+        #     h=64,
+        #     w=64
+        # )
 
         # # Pull out the concept and image vectors from each block
         # image_vectors = torch.stack(self.flux_generator.model.image_vectors).squeeze(1)

@@ -4,7 +4,6 @@ from torch import nn, Tensor
 import einops
 import math
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
 
 from concept_attention.flux.src.flux.modules.layers import Modulation, SelfAttention
 from concept_attention.flux.src.flux.math import apply_rope
@@ -167,7 +166,6 @@ class ModifiedDoubleStreamBlock(nn.Module):
             )
             # Separate the concept and image attentions
             concept_attn = concept_image_attn[:, :, :concepts.shape[1]]
-
         # Rearrange the attention tensors
         txt_attn = einops.rearrange(txt_attn, "B H L D -> B L (H D)")
         if joint_attention_kwargs is not None and joint_attention_kwargs.get("keep_head_dim", False):
@@ -177,26 +175,20 @@ class ModifiedDoubleStreamBlock(nn.Module):
             concept_attn = einops.rearrange(concept_attn, "B H L D -> B L (H D)")
             img_attn = einops.rearrange(img_attn, "B H L D -> B L (H D)")
 
-        concept_attention_dict = {
-            "output_space_concept_vectors": concept_attn,
-            "output_space_image_vectors": img_attn,
-            "cross_attention_concept_vectors": concept_q,
-            "cross_attention_image_vectors": img_q
-        }
-
         # # Compute the cross attentions
         # cross_attention_maps = einops.einsum(
         #     concept_q,
         #     img_q,
         #     "batch head concepts dim, batch had patches dim -> batch head concepts patches"
         # )
-        # cross_attention_maps = einops.reduce(cross_attention_maps, "batch head concepts patches -> batch concepts patches", reduction="mean")
-        # # Compute the concept attentions
-        # concept_attention_maps = einops.einsum(
-        #     concept_attn,
-        #     img_attn,
-        #     "batch concepts dim, batch patches dim -> batch concepts patches"
-        # )
+        # Collect all of the concept attention information 
+        concept_attention_dict = {
+            "output_space_concept_vectors": concept_attn.detach(),
+            "output_space_image_vectors": img_attn.detach(),
+            # "cross_attention_maps": cross_attention_maps.detach(),
+            "cross_attention_concept_vectors": concept_q.detach(),
+            "cross_attention_image_vectors": img_q.detach()
+        }
         # Do the block updates
         # Calculate the img blocks
         img = img + img_mod1.gate * self.img_attn.proj(img_attn)

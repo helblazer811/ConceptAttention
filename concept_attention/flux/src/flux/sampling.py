@@ -114,6 +114,7 @@ def denoise(
     combined_concept_attention_dict = {
         "output_space_concept_vectors": [],
         "output_space_image_vectors": [],
+        # "cross_attention_maps": [],
         "cross_attention_concept_vectors": [],
         "cross_attention_image_vectors": [],
     }
