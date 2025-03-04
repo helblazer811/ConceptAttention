@@ -45,6 +45,10 @@ for concept, concept_heatmap in zip(concepts, concept_heatmaps):
     concept_heatmap.save(f"{concept}.png")
 ```
 
+# Beta: ConceptAttention for a Video Generation Model
+
+If your are interested in testing out the capabilities of concept attention on video generation models check out the expriments in `experiments/video_model`. 
+
 # Experiments
 
 Each of our experiments are in separate directories in `experiments`. 
