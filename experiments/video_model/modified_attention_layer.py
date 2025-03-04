@@ -156,7 +156,7 @@ class ModifiedCogVideoXBlock(nn.Module):
 
         del attn_concept_hidden_states
 
-        concept_attention_maps = concept_attention_maps.cpu()[0]
+        concept_attention_maps = concept_attention_maps[0]
 
         concept_attention_dict = {
             "concept_attention_maps": concept_attention_maps
