@@ -67,14 +67,14 @@ To use ImageNetSegmentation you will need to download `gtsegs_ijcv.mat` into `ex
 
 # Bibtex
 
-```
-    @misc{helbling2025conceptattentiondiffusiontransformerslearn,
-          title={ConceptAttention: Diffusion Transformers Learn Highly Interpretable Features}, 
-          author={Alec Helbling and Tuna Han Salih Meral and Ben Hoover and Pinar Yanardag and Duen Horng Chau},
-          year={2025},
-          eprint={2502.04320},
-          archivePrefix={arXiv},
-          primaryClass={cs.CV},
-          url={https://arxiv.org/abs/2502.04320}, 
-      }
+```bibtex
+@misc{helbling2025conceptattentiondiffusiontransformerslearn,
+      title={ConceptAttention: Diffusion Transformers Learn Highly Interpretable Features}, 
+      author={Alec Helbling and Tuna Han Salih Meral and Ben Hoover and Pinar Yanardag and Duen Horng Chau},
+      year={2025},
+      eprint={2502.04320},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2502.04320}, 
+}
 ```
