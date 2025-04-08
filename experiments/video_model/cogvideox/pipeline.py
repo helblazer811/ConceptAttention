@@ -410,6 +410,30 @@ class ModifiedCogVideoXPipeline(CogVideoXPipeline):
             height=grid_height,
         )
 
+        # Rearrange concept self attention maps to match the grid dimensions
+        concept_attention_dict["concept_self_attention_maps"] = einops.rearrange(
+            concept_attention_dict["concept_self_attention_maps"],
+            "(frames_0 height_0 width_0) (frames_1 height_1 width_1) -> frames_0 height_0 width_0 frames_1 height_1 width_1",
+            frames_0=latent_frames,
+            frames_1=latent_frames,
+            width_0=grid_width,
+            width_1=grid_width,
+            height_0=grid_height,
+            height_1=grid_height,
+        )
+
+        # Rearrange self attention maps to match the grid dimensions
+        concept_attention_dict["self_attention_maps"] = einops.rearrange(
+            concept_attention_dict["self_attention_maps"],
+            "(frames_0 height_0 width_0) (frames_1 height_1 width_1) -> frames_0 height_0 width_0 frames_1 height_1 width_1",
+            frames_0=latent_frames,
+            frames_1=latent_frames,
+            width_0=grid_width,
+            width_1=grid_width,
+            height_0=grid_height,
+            height_1=grid_height,
+        )
+
         if not output_type == "latent":
             # Discard any padding frames that were added for CogVideoX 1.5
             latents = latents[:, additional_frames:]

@@ -355,6 +355,8 @@ class ModifiedCogVideoXTransformer3DModel(ModelMixin, ConfigMixin, PeftAdapterMi
         concept_attention_dict = {
             "concept_attention_maps": None,
             "cross_attention_maps": None,
+            "concept_self_attention_maps": None,
+            "self_attention_maps": None,
         }
         processed_layers = 0
 
@@ -404,6 +406,18 @@ class ModifiedCogVideoXTransformer3DModel(ModelMixin, ConfigMixin, PeftAdapterMi
                         current_concept_attention_dict["cross_attention_maps"][-1], 
                         dim=-2
                     )[:len(concept_attention_kwargs["concepts"])]
+
+                    # Same processing for concept self attention maps
+                    concept_attention_dict["concept_self_attention_maps"] = torch.nn.functional.softmax(
+                        current_concept_attention_dict["concept_self_attention_maps"][-1],
+                        dim=-2
+                    )
+
+                    # Same processing for self attention maps
+                    concept_attention_dict["self_attention_maps"] = torch.nn.functional.softmax(
+                        current_concept_attention_dict["self_attention_maps"][-1],
+                        dim=-2
+                    )
                 else:
                     # For subsequent layers, update running average using exponential moving average
                     # new_avg = old_avg * α + new_value * (1-α), where α = count/(count+1)
@@ -426,7 +440,18 @@ class ModifiedCogVideoXTransformer3DModel(ModelMixin, ConfigMixin, PeftAdapterMi
                             dim=-2
                         )[:len(concept_attention_kwargs["concepts"])] * (1 - alpha)
                     )
-                
+
+                    # Update concept self attention maps
+                    concept_attention_dict["concept_self_attention_maps"] = (
+                        concept_attention_dict["concept_self_attention_maps"] * alpha + 
+                        current_concept_attention_dict["concept_self_attention_maps"][-1] * (1 - alpha)
+                    )
+
+                    # Update self attention maps
+                    concept_attention_dict["self_attention_maps"] = (
+                        concept_attention_dict["self_attention_maps"] * alpha + 
+                        current_concept_attention_dict["self_attention_maps"][-1] * (1 - alpha)
+                    )
                 # Increment counter for running average calculation
                 processed_layers += 1
 
