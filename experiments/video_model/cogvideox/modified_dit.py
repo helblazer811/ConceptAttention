@@ -353,9 +353,10 @@ class ModifiedCogVideoXTransformer3DModel(ModelMixin, ConfigMixin, PeftAdapterMi
         hidden_states = hidden_states[:, text_seq_length:]
 
         concept_attention_dict = {
-            "concept_attention_maps": [],
-            "cross_attention_maps": [],
+            "concept_attention_maps": None,
+            "cross_attention_maps": None,
         }
+        processed_layers = 0
 
         # 3. Transformer blocks
         for i, block in enumerate(self.transformer_blocks):
@@ -386,43 +387,49 @@ class ModifiedCogVideoXTransformer3DModel(ModelMixin, ConfigMixin, PeftAdapterMi
                     image_rotary_emb=image_rotary_emb
                 )
 
-            for key in current_concept_attention_dict:
-                concept_attention_dict[key].append(current_concept_attention_dict[key])
 
-        for key in concept_attention_dict:
-            concept_attention_dict[key] = torch.stack(concept_attention_dict[key], dim=1)
+            # Only process attention maps from specified layers
+            if i in concept_attention_kwargs["layers"]:
+                # For the first selected layer, initialize our running averages
+                if processed_layers == 0:
+                    # Apply softmax to normalize attention weights across concepts
+                    # Take only the last batch item (index -1) and filter to requested concepts
+                    concept_attention_dict["concept_attention_maps"] = torch.nn.functional.softmax(
+                        current_concept_attention_dict["concept_attention_maps"][-1], 
+                        dim=-2
+                    )[:len(concept_attention_kwargs["concepts"])]
+                    
+                    # Same processing for cross attention maps
+                    concept_attention_dict["cross_attention_maps"] = torch.nn.functional.softmax(
+                        current_concept_attention_dict["cross_attention_maps"][-1], 
+                        dim=-2
+                    )[:len(concept_attention_kwargs["concepts"])]
+                else:
+                    # For subsequent layers, update running average using exponential moving average
+                    # new_avg = old_avg * α + new_value * (1-α), where α = count/(count+1)
+                    alpha = processed_layers / (processed_layers + 1)
+                    
+                    # Update concept attention maps
+                    concept_attention_dict["concept_attention_maps"] = (
+                        concept_attention_dict["concept_attention_maps"] * alpha + 
+                        torch.nn.functional.softmax(
+                            current_concept_attention_dict["concept_attention_maps"][-1], 
+                            dim=-2
+                        )[:len(concept_attention_kwargs["concepts"])] * (1 - alpha)
+                    )
+                    
+                    # Update cross attention maps
+                    concept_attention_dict["cross_attention_maps"] = (
+                        concept_attention_dict["cross_attention_maps"] * alpha + 
+                        torch.nn.functional.softmax(
+                            current_concept_attention_dict["cross_attention_maps"][-1], 
+                            dim=-2
+                        )[:len(concept_attention_kwargs["concepts"])] * (1 - alpha)
+                    )
+                
+                # Increment counter for running average calculation
+                processed_layers += 1
 
-        ################### Average concept maps over layers #########################
-        # Do some merging of the concept attention maps to preserve memory
-        # a. Pull out the index 1 from the batch dimension
-        concept_attention_dict["concept_attention_maps"] = concept_attention_dict["concept_attention_maps"][1]
-        # b. Pull out only the layers of interest
-        concept_attention_dict["concept_attention_maps"] = concept_attention_dict["concept_attention_maps"][concept_attention_kwargs["layers"]]
-        # c. Apply a softmax over the concept dimension
-        concept_attention_dict["concept_attention_maps"] = torch.nn.functional.softmax(
-            concept_attention_dict["concept_attention_maps"], 
-            dim=-2
-        )
-        # d. Pull out only the concepts of interest
-        concept_attention_dict["concept_attention_maps"] = concept_attention_dict["concept_attention_maps"][:, :len(concept_attention_kwargs["concepts"])]
-        # e. Average over the layers
-        concept_attention_dict["concept_attention_maps"] = torch.mean(
-            concept_attention_dict["concept_attention_maps"], 
-            dim=0
-        )
-        # Also do the same for cross attention maps
-        concept_attention_dict["cross_attention_maps"] = concept_attention_dict["cross_attention_maps"][1]
-        concept_attention_dict["cross_attention_maps"] = concept_attention_dict["cross_attention_maps"][concept_attention_kwargs["layers"]]
-        concept_attention_dict["cross_attention_maps"] = torch.nn.functional.softmax(
-            concept_attention_dict["cross_attention_maps"], 
-            dim=-2
-        )
-        concept_attention_dict["cross_attention_maps"] = concept_attention_dict["cross_attention_maps"][:, :len(concept_attention_kwargs["concepts"])]
-        concept_attention_dict["cross_attention_maps"] = torch.mean(
-            concept_attention_dict["cross_attention_maps"], 
-            dim=0
-        )
-        ###############################################################################
 
         if not self.config.use_rotary_positional_embeddings:
             # CogVideoX-2B
