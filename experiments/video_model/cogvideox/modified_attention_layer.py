@@ -116,6 +116,18 @@ class CustomCogVideoXAttnProcessor2_0:
             "batch heads concepts patches -> batch concepts patches",
             "mean"
         )
+
+        self_attention_maps = einops.einsum(
+            image_query,
+            image_key,
+            "batch heads patches_0 dim, batch heads patches_1 dim -> batch heads patches_0 patches_1",
+        )
+        # Average over the heads
+        self_attention_maps = einops.reduce(
+            self_attention_maps,
+            "batch heads patches_0 patches_1 -> batch patches_0 patches_1",
+            "mean"
+        )
         ################################################################################
         hidden_states = hidden_states.transpose(1, 2).reshape(batch_size, -1, attn.heads * head_dim)
         concept_hidden_states = attn_concept_hidden_states.transpose(1, 2).reshape(batch_size, -1, attn.heads * head_dim)
@@ -128,10 +140,17 @@ class CustomCogVideoXAttnProcessor2_0:
             image_hidden_states,
             "batch concepts dim, batch patches dim -> batch concepts patches"
         )
+        concept_self_attention_maps = einops.einsum(
+            image_hidden_states,
+            image_hidden_states,
+            "batch patches_0 dim, batch patches_1 dim -> batch patches_0 patches_1"
+        )
         # Save the info
         concept_attention_dict = {
             "concept_attention_maps": concept_attention_maps,
             "cross_attention_maps": cross_attention_maps,
+            "concept_self_attention_maps": concept_self_attention_maps,
+            "self_attention_maps": self_attention_maps,
         }
         # #############################################
 
