@@ -12,7 +12,7 @@ ConceptAttention is an interpretability method for multi-modal diffusion transfo
 
 You will then need to install the code here locally by running
 ```bash
-    pip install -e .
+pip install -e .
 ```
 
 # Running the model 
@@ -47,34 +47,34 @@ for concept, concept_heatmap in zip(concepts, concept_heatmaps):
 
 # Experiments
 
-Each of our experiments are in separate directories in `experiments`. 
+Each of our experiments are in separate directories in [`/experiments`](experiments). 
 
 You can run one for example like this
 ```bash
-   cd experiments/qualitative_baseline_comparison
-   python generate_image.py # Generates test image using flux
-   python plot_flux_concept_attention.py # Generates concept attention maps and saves them in results. 
+cd experiments/qualitative_baseline_comparison
+python generate_image.py # Generates test image using flux
+python plot_flux_concept_attention.py # Generates concept attention maps and saves them in results. 
 ```
 
 # Data Setup
-To use ImageNetSegmentation you will need to download `gtsegs_ijcv.mat` into `experiments/imagenet_segmentation/data`. 
+To use ImageNetSegmentation you will need to download `gtsegs_ijcv.mat` into [`/experiments/imagenet_segmentation/data`](experiments/imagenet_segmentation/data/). 
 
 ```bash
-    cd experiments/imagenet_segmentation/data
-    wget http://calvin-vision.net/bigstuff/proj-imagenet/data/gtsegs_ijcv.mat
+cd experiments/imagenet_segmentation/data
+wget http://calvin-vision.net/bigstuff/proj-imagenet/data/gtsegs_ijcv.mat
 ```
 
 
 # Bibtex
 
 ```
-    @misc{helbling2025conceptattentiondiffusiontransformerslearn,
-          title={ConceptAttention: Diffusion Transformers Learn Highly Interpretable Features}, 
-          author={Alec Helbling and Tuna Han Salih Meral and Ben Hoover and Pinar Yanardag and Duen Horng Chau},
-          year={2025},
-          eprint={2502.04320},
-          archivePrefix={arXiv},
-          primaryClass={cs.CV},
-          url={https://arxiv.org/abs/2502.04320}, 
-      }
+@misc{helbling2025conceptattentiondiffusiontransformerslearn,
+    title={ConceptAttention: Diffusion Transformers Learn Highly Interpretable Features}, 
+    author={Alec Helbling and Tuna Han Salih Meral and Ben Hoover and Pinar Yanardag and Duen Horng Chau},
+    year={2025},
+    eprint={2502.04320},
+    archivePrefix={arXiv},
+    primaryClass={cs.CV},
+    url={https://arxiv.org/abs/2502.04320}, 
+}
 ```
