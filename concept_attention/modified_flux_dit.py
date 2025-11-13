@@ -119,10 +119,15 @@ class ModifiedFluxDiT(nn.Module):
         concept_vec = concept_vec + self.vector_in(original_concept_vec)
         concepts = self.txt_in(concepts)
         ############## Modify the double blocks to also return concept vectors ##############
-        all_cross_attention_maps = []
-        all_concept_attention_maps = []
+        combined_concept_attention_dict = {
+            "output_space_concept_vectors": [],
+            "output_space_image_vectors": [],
+            # "cross_attention_maps": [],
+            "cross_attention_concept_vectors": [],
+            "cross_attention_image_vectors": [],
+        }
         for block in self.double_blocks:
-            img, txt, concepts, cross_attention_maps, concept_attention_maps = block(
+            img, txt, concepts, concept_attention_dict = block(
                 img=img, 
                 txt=txt, 
                 vec=vec, 
@@ -134,18 +139,18 @@ class ModifiedFluxDiT(nn.Module):
                 iteration=iteration,
                 joint_attention_kwargs=joint_attention_kwargs
             )
-            all_cross_attention_maps.append(cross_attention_maps)
-            all_concept_attention_maps.append(concept_attention_maps)   
+            for key in combined_concept_attention_dict.keys():
+                combined_concept_attention_dict[key].append(concept_attention_dict[key])
         
-        all_concept_attention_maps = torch.stack(all_concept_attention_maps, dim=0)
-        all_cross_attention_maps = torch.stack(all_cross_attention_maps, dim=0)
+        for key in combined_concept_attention_dict.keys():
+            combined_concept_attention_dict[key] = torch.stack(combined_concept_attention_dict[key], dim=0)
         #####################################################################################
 
         img = torch.cat((txt, img), 1)
         
         # Speed up segmentation by not generating the full image
         if stop_after_multimodal_attentions:
-            return None, all_cross_attention_maps, all_concept_attention_maps
+            return None, combined_concept_attention_dict
 
         # Do the single blocks now
         for block in self.single_blocks:
@@ -154,4 +159,5 @@ class ModifiedFluxDiT(nn.Module):
         img = img[:, txt.shape[1] :, ...]
 
         img = self.final_layer(img, vec)  # (N, T, patch_size ** 2 * out_channels)
-        return img, all_cross_attention_maps, all_concept_attention_maps
+
+        return img, combined_concept_attention_dict

@@ -111,14 +111,19 @@ def denoise(
     joint_attention_kwargs=None,
 ):
     intermediate_images = [img]
-    all_cross_attention_maps = []
-    all_concept_attention_maps = []
+    combined_concept_attention_dict = {
+        "output_space_concept_vectors": [],
+        "output_space_image_vectors": [],
+        # "cross_attention_maps": [],
+        "cross_attention_concept_vectors": [],
+        "cross_attention_image_vectors": [],
+    }
     # this is ignored for schnell
     guidance_vec = torch.full((img.shape[0],), guidance, device=img.device, dtype=img.dtype)
     iteration = 0
     for t_curr, t_prev in tqdm(zip(timesteps[:-1], timesteps[1:])):
         t_vec = torch.full((img.shape[0],), t_curr, dtype=img.dtype, device=img.device)
-        pred, cross_attention_maps, concept_attention_maps = model(
+        pred, concept_attention_dict = model(
             img=img,
             img_ids=img_ids,
             txt=txt,
@@ -138,13 +143,13 @@ def denoise(
         # increment iteration
         iteration += 1
 
-        all_cross_attention_maps.append(cross_attention_maps)
-        all_concept_attention_maps.append(concept_attention_maps)
+        for key in combined_concept_attention_dict.keys():
+            combined_concept_attention_dict[key].append(concept_attention_dict[key])
 
-    all_cross_attention_maps = torch.stack(all_cross_attention_maps, dim=0)
-    all_concept_attention_maps = torch.stack(all_concept_attention_maps, dim=0)
+    for key in combined_concept_attention_dict.keys():
+        combined_concept_attention_dict[key] = torch.stack(combined_concept_attention_dict[key], dim=0)
 
-    return img, intermediate_images, all_cross_attention_maps, all_concept_attention_maps
+    return img, intermediate_images, combined_concept_attention_dict
 
 def unpack(x: Tensor, height: int, width: int) -> Tensor:
     return rearrange(

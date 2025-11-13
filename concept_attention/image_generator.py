@@ -58,7 +58,7 @@ def get_models(
     clip = load_clip(device)
     model = load_flow_model(name, device="cpu" if offload else device, attention_block_class=attention_block_class, dit_class=dit_class)
     ae = load_ae(name, device="cpu" if offload else device)
-    # nsfw_classifier = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=device)
+
     return model, ae, t5, clip, None
 
 class FluxGenerator():
@@ -171,7 +171,7 @@ class FluxGenerator():
             torch.cuda.empty_cache()
             self.model = self.model.to(self.device)
         # denoise initial noise
-        x, intermediate_images, cross_attention_maps, concept_attention_maps = denoise(
+        x, _, concept_attention_dict = denoise(
             self.model, 
             **inp, 
             timesteps=timesteps, 
@@ -179,19 +179,19 @@ class FluxGenerator():
             joint_attention_kwargs=joint_attention_kwargs
         )
         # offload model, load autoencoder to gpu
-        if self.offload:
-            self.model.cpu()
-            torch.cuda.empty_cache()
-            self.ae.decoder.to(x.device)
+        # if self.offload:
+        self.model.cpu()
+        torch.cuda.empty_cache()
+        self.ae.decoder.to(x.device)
 
         # decode latents to pixel space
         x = unpack(x.float(), opts.height, opts.width)
-        with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16):
-            x = self.ae.decode(x)
+        # with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16):
+        x = self.ae.decode(x.to(torch.float32).to(self.device))
 
-        if self.offload:
-            self.ae.decoder.cpu()
-            torch.cuda.empty_cache()
+        self.ae.decoder.cpu()
+        torch.cuda.empty_cache()
+        self.model.to(self.device)
 
         t1 = time.perf_counter()
 
@@ -203,4 +203,4 @@ class FluxGenerator():
 
         img = Image.fromarray((127.5 * (x + 1.0)).cpu().byte().numpy())
 
-        return img, cross_attention_maps, concept_attention_maps
+        return img, concept_attention_dict

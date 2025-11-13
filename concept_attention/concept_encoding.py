@@ -17,7 +17,6 @@ def generate_concept_basis_and_image_queries(
     generator=None,
     normalize_concepts=False,
     device="cuda",
-    include_images_in_basis=False,
     offload=True,
     joint_attention_kwargs=None
 ):
@@ -33,7 +32,7 @@ def generate_concept_basis_and_image_queries(
             offload=offload,
         )
 
-    image, cross_attention_maps, concept_attention_maps = generator.generate_image(
+    image, concept_attention_dict = generator.generate_image(
         width=1024,
         height=1024,
         num_steps=num_steps,
@@ -44,60 +43,16 @@ def generate_concept_basis_and_image_queries(
         joint_attention_kwargs=joint_attention_kwargs,
     )
 
-    concept_vectors = []
-    image_vectors = []
-    supplemental_vectors = []
-    for double_block in generator.model.double_blocks:
-        if target_space == "output":
-            image_vecs = torch.stack(
-                double_block.image_output_vectors
-            ).squeeze(1)
-            concept_vecs = torch.stack(
-                double_block.concept_output_vectors
-            ).squeeze(1)
-            image_supplemental_vecs = image_vecs
-            # Clear out the layer
-            double_block.clear_cached_vectors()
-        elif target_space == "value":
-            image_vecs = torch.stack(
-                double_block.image_value_vectors
-            ).squeeze(1)
-            concept_vecs = torch.stack(
-                double_block.concept_value_vectors
-            ).squeeze(1)
-            image_supplemental_vecs = image_vecs
-            # Clear out the layer
-            double_block.clear_cached_vectors()
-        elif target_space == "cross_attention":
-            image_vecs = torch.stack(
-                double_block.image_query_vectors
-            ).squeeze(1)
-            concept_vecs = torch.stack(
-                double_block.concept_key_vectors
-            ).squeeze(1)
-            image_supplemental_vecs = torch.stack(
-                double_block.image_key_vectors
-            ).squeeze(1)
-            # Clear out the layer
-            double_block.clear_cached_vectors()
-        else:
-            raise ValueError("Invalid target space")
-        # Average over time 
-        if average_over_time:
-            image_vecs = image_vecs[average_after:].mean(dim=0)
-            concept_vecs = concept_vecs[average_after:].mean(dim=0)
-            image_supplemental_vecs = image_supplemental_vecs[average_after:].mean(dim=0)
-        # Add to list
-        concept_vectors.append(concept_vecs)
-        image_vectors.append(image_vecs)
-        supplemental_vectors.append(image_supplemental_vecs)
-    # Stack layers
-    concept_vectors = torch.stack(concept_vectors)
-    if include_images_in_basis:
-        supplemental_vectors = torch.stack(supplemental_vectors)
-        concept_vectors = torch.cat([concept_vectors, supplemental_vectors], dim=-2)
-    image_vectors = torch.stack(image_vectors)
-
+    if target_space == "output":
+        image_vecs = concept_attention_dict["output_space_image_vectors"]
+        concept_vecs = concept_attention_dict["output_space_concept_vectors"]   
+    elif target_space == "cross_attention":
+        image_vecs = concept_attention_dict["cross_attention_image_vectors"]
+        concept_vecs = concept_attention_dict["cross_attention_concept_vectors"]
+    # Average over time 
+    if average_over_time:
+        image_vecs = image_vecs[average_after:].mean(dim=0)
+        concept_vecs = concept_vecs[average_after:].mean(dim=0)
     if layer_index is not None:
         # Pull out the layer index
         concept_vectors = concept_vectors[layer_index]
