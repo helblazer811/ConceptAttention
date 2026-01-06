@@ -1,5 +1,5 @@
 
-from concept_attention.image_generator import FluxGenerator
+from concept_attention.flux.image_generator import FluxGenerator
 
 # import torch
 # from diffusers import StableDiffusion3Pipeline

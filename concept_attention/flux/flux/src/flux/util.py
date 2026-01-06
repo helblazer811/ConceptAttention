@@ -9,9 +9,9 @@ from safetensors.torch import load_file as load_sft
 
 from transformers import T5EncoderModel, AutoConfig, AutoModel, T5Tokenizer
 
-from concept_attention.flux.src.flux.model import Flux, FluxParams
-from concept_attention.flux.src.flux.modules.autoencoder import AutoEncoder, AutoEncoderParams
-from concept_attention.flux.src.flux.modules.conditioner import HFEmbedder
+from concept_attention.flux.flux.src.flux.model import Flux, FluxParams
+from concept_attention.flux.flux.src.flux.modules.autoencoder import AutoEncoder, AutoEncoderParams
+from concept_attention.flux.flux.src.flux.modules.conditioner import HFEmbedder
 
 
 @dataclass

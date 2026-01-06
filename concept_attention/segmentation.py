@@ -11,9 +11,9 @@ import PIL
 from torchvision import transforms
 import torchvision.transforms.functional as F
 
-from concept_attention.flux.src.flux.sampling import get_noise, get_schedule, prepare, unpack
+from concept_attention.flux.flux.src.flux.sampling import get_noise, get_schedule, prepare, unpack
 
-from concept_attention.image_generator import FluxGenerator
+from concept_attention.flux.image_generator import FluxGenerator
 from concept_attention.utils import embed_concepts, linear_normalization
 
 class SegmentationAbstractClass(ABC):

@@ -13,9 +13,9 @@ from st_keyup import st_keyup
 from torchvision import transforms
 from transformers import pipeline
 
-from concept_attention.flux.src.flux.cli import SamplingOptions
-from concept_attention.flux.src.flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from concept_attention.flux.src.flux.util import (
+from concept_attention.flux.flux.src.flux.cli import SamplingOptions
+from concept_attention.flux.flux.src.flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
+from concept_attention.flux.flux.src.flux.util import (
     configs,
     embed_watermark,
     load_ae,

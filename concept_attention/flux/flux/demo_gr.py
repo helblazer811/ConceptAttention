@@ -9,9 +9,9 @@ from einops import rearrange
 from PIL import Image, ExifTags
 from transformers import pipeline
 
-from concept_attention.flux.src.flux.cli import SamplingOptions
-from concept_attention.flux.src.flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from concept_attention.flux.src.flux.util import configs, embed_watermark, load_ae, load_clip, load_flow_model, load_t5
+from concept_attention.flux.flux.src.flux.cli import SamplingOptions
+from concept_attention.flux.flux.src.flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
+from concept_attention.flux.flux.src.flux.util import configs, embed_watermark, load_ae, load_clip, load_flow_model, load_t5
 
 NSFW_THRESHOLD = 0.85
 

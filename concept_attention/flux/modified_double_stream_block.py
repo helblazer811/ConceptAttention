@@ -5,8 +5,8 @@ import einops
 import math
 import torch.nn.functional as F
 
-from concept_attention.flux.src.flux.modules.layers import Modulation, SelfAttention
-from concept_attention.flux.src.flux.math import apply_rope
+from concept_attention.flux.flux.src.flux.modules.layers import Modulation, SelfAttention
+from concept_attention.flux.flux.src.flux.math import apply_rope
 
 
 def attention(q: Tensor, k: Tensor, v: Tensor, pe: Tensor) -> Tensor:

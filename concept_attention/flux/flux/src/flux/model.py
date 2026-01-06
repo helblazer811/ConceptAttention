@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import torch
 from torch import Tensor, nn
 
-from concept_attention.flux.src.flux.modules.layers import (DoubleStreamBlock, EmbedND, LastLayer,
+from concept_attention.flux.flux.src.flux.modules.layers import (DoubleStreamBlock, EmbedND, LastLayer,
                                  MLPEmbedder, SingleStreamBlock,
                                  timestep_embedding)
 

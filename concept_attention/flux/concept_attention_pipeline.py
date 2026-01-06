@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import PIL
 import numpy as np
 import matplotlib.pyplot as plt
-from concept_attention.flux.src.flux.sampling import prepare
+from concept_attention.flux.flux.src.flux.sampling import prepare
 from concept_attention.segmentation import add_noise_to_image, encode_image
 from concept_attention.utils import embed_concepts, linear_normalization
 import torch
@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from concept_attention.binary_segmentation_baselines.raw_cross_attention import RawCrossAttentionBaseline, RawCrossAttentionSegmentationModel
 from concept_attention.binary_segmentation_baselines.raw_output_space import RawOutputSpaceBaseline, RawOutputSpaceSegmentationModel
-from concept_attention.image_generator import FluxGenerator
+from concept_attention.flux.image_generator import FluxGenerator
 
 @dataclass
 class ConceptAttentionPipelineOutput():

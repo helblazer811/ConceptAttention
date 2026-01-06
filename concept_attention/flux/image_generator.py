@@ -5,15 +5,15 @@ import numpy as np
 from einops import rearrange
 from transformers import pipeline
 
-from concept_attention.flux.src.flux.cli import SamplingOptions
-from concept_attention.flux.src.flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from concept_attention.flux.src.flux.util import configs, embed_watermark, load_ae, load_clip, load_t5
+from concept_attention.flux.flux.src.flux.cli import SamplingOptions
+from concept_attention.flux.flux.src.flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
+from concept_attention.flux.flux.src.flux.util import configs, embed_watermark, load_ae, load_clip, load_t5
 
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file as load_sft
 
-from concept_attention.modified_double_stream_block import ModifiedDoubleStreamBlock
-from concept_attention.modified_flux_dit import ModifiedFluxDiT
+from concept_attention.flux.modified_double_stream_block import ModifiedDoubleStreamBlock
+from concept_attention.flux.modified_flux_dit import ModifiedFluxDiT
 from concept_attention.utils import embed_concepts
 
 def load_flow_model(

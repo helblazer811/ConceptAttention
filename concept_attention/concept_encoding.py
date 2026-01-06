@@ -2,7 +2,7 @@ import torch
 import einops 
 
 from concept_attention.utils import linear_normalization
-from concept_attention.image_generator import FluxGenerator
+from concept_attention.flux.image_generator import FluxGenerator
 
 def generate_concept_basis_and_image_queries(
     prompt: str,

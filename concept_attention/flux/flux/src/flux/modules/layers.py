@@ -5,7 +5,7 @@ import torch
 from einops import rearrange
 from torch import Tensor, nn
 
-from concept_attention.flux.src.flux.math import attention, rope
+from concept_attention.flux.flux.src.flux.math import attention, rope
 
 
 class EmbedND(nn.Module):

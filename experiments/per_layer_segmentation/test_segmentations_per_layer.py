@@ -21,7 +21,7 @@ import einops
 import matplotlib.pyplot as plt
 
 from experiments.paper_figures.imagenet_segmentation.data_processing import ImagenetSegmentation
-from concept_attention.image_generator import FluxGenerator
+from concept_attention.flux.image_generator import FluxGenerator
 from concept_attention.segmentation import generate_concept_basis_and_image_representation
 from concept_attention.utils import batch_intersection_union, batch_pix_accuracy, get_ap_scores
 

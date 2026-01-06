@@ -6,7 +6,7 @@ from torch import nn
 import torch
 import einops
 
-from concept_attention.image_generator import FluxGenerator
+from concept_attention.flux.image_generator import FluxGenerator
 from concept_attention.segmentation import SegmentationAbstractClass
 
 class DAAM(nn.Module):

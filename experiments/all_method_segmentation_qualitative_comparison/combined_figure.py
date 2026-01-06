@@ -14,7 +14,7 @@ from concept_attention.binary_segmentation_baselines.daam_sdxl import DAAMStable
 from concept_attention.binary_segmentation_baselines.raw_cross_attention import RawCrossAttentionSegmentationModel
 from concept_attention.binary_segmentation_baselines.raw_output_space import RawOutputSpaceSegmentationModel
 from concept_attention.binary_segmentation_baselines.raw_value_space import RawValueSpaceSegmentationModel
-from concept_attention.image_generator import FluxGenerator
+from concept_attention.flux.image_generator import FluxGenerator
 
 from torchvision import transforms
 

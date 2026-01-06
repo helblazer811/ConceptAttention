@@ -9,8 +9,8 @@ from einops import rearrange
 from fire import Fire
 from PIL import ExifTags, Image
 
-from concept_attention.flux.src.flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
-from concept_attention.flux.src.flux.util import (configs, embed_watermark, load_ae, load_clip,
+from concept_attention.flux.flux.src.flux.sampling import denoise, get_noise, get_schedule, prepare, unpack
+from concept_attention.flux.flux.src.flux.util import (configs, embed_watermark, load_ae, load_clip,
                        load_flow_model, load_t5)
 from transformers import pipeline
 

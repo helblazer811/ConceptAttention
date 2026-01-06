@@ -10,7 +10,7 @@ from concept_attention.binary_segmentation_baselines.clip_text_span_baseline imp
 from concept_attention.binary_segmentation_baselines.daam_sdxl import DAAMStableDiffusionXLSegmentationModel
 from concept_attention.binary_segmentation_baselines.raw_cross_attention import RawCrossAttentionSegmentationModel
 from concept_attention.binary_segmentation_baselines.raw_output_space import RawOutputSpaceSegmentationModel
-from concept_attention.image_generator import FluxGenerator
+from concept_attention.flux.image_generator import FluxGenerator
 
 if __name__ == "__main__":
 

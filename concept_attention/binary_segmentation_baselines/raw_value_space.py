@@ -1,12 +1,12 @@
 """
     This baseline just returns heatmaps as the raw cross attentions.
 """
-from concept_attention.flux.src.flux.sampling import prepare, unpack
+from concept_attention.flux.flux.src.flux.sampling import prepare, unpack
 import torch
 import einops
 import PIL
 
-from concept_attention.image_generator import FluxGenerator
+from concept_attention.flux.image_generator import FluxGenerator
 from concept_attention.segmentation import SegmentationAbstractClass, add_noise_to_image, encode_image
 from concept_attention.utils import embed_concepts, linear_normalization
 

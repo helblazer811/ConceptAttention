@@ -16,7 +16,7 @@ from PIL import Image
 import argparse
 
 from new_paper_experiments.pascal_voc_segmentation.multi_class_segmentation import FluxMultiClassSegmentation
-from concept_attention.image_generator import FluxGenerator
+from concept_attention.flux.image_generator import FluxGenerator
 from concept_attention.utils import batch_intersection_union, batch_pix_accuracy, get_ap_scores
 from concept_attention.binary_segmentation_baselines.chefer_vit_explainability.data.VOC import VOCSegmentation
 

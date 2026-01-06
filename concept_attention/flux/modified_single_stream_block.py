@@ -2,8 +2,8 @@ import torch
 from torch import nn, Tensor
 from einops import rearrange
 
-from concept_attention.flux.src.flux.modules.layers import Modulation, QKNorm
-from concept_attention.flux.src.flux.math import attention
+from concept_attention.flux.flux.src.flux.modules.layers import Modulation, QKNorm
+from concept_attention.flux.flux.src.flux.math import attention
 
 NUM_IMAGE_PATCHES = 4096
 
