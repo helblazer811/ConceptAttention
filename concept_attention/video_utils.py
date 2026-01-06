@@ -30,7 +30,10 @@ def make_concept_attention_video(concepts, concept_attention_maps, save_path, fp
             )
 
     ani = animation.FuncAnimation(fig, update, frames=num_frames, repeat=False)
-    ani.save(save_path, writer='ffmpeg', fps=fps)
+    # Use pillow writer for gif, ffmpeg for other formats
+    writer = 'pillow' if save_path.endswith('.gif') else 'ffmpeg'
+    ani.save(save_path, writer=writer, fps=fps)
+    plt.close(fig)
 
 def make_individual_videos(concepts, concept_attention_maps, save_dir, fps=4, color_map='inferno'):
 
@@ -58,8 +61,11 @@ def make_individual_videos(concepts, concept_attention_maps, save_dir, fps=4, co
             )
 
         ani = animation.FuncAnimation(fig, update, frames=concept_attention_map.shape[0], repeat=False)
-        ani.save(save_path, writer='ffmpeg', fps=fps)
+        # Use pillow writer for gif, ffmpeg for other formats
+        writer = 'pillow' if save_path.endswith('.gif') else 'ffmpeg'
+        ani.save(save_path, writer=writer, fps=fps)
+        plt.close(fig)
 
     for i, concept in enumerate(concepts):
         concept_attention_map = concept_attention_maps[i]
-        make_individual_video(concept, concept_attention_map, f"{save_dir}/{concept}_attention_video.mov")
+        make_individual_video(concept, concept_attention_map, f"{save_dir}/{concept}_attention_video.gif")
