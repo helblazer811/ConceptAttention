@@ -54,6 +54,7 @@ Example scripts are located in the [`examples/`](examples) directory:
 | `encode_image_flux.py` | Encode an existing image and generate concept heatmaps (Flux 1) |
 | `generate_image_flux.py` | Generate a new image with concept heatmaps (Flux 1) |
 | `generate_image_flux2.py` | Generate a new image with concept heatmaps (Flux 2) |
+| `generate_video_cogvideox.py` | Generate a video with concept attention heatmaps (CogVideoX) |
 
 To run an example:
 ```bash
@@ -63,9 +64,46 @@ python generate_image_flux.py
 
 Output images will be saved to `examples/results/flux/` or `examples/results/flux2/` depending on the model.
 
-# Beta: ConceptAttention for a Video Generation Model
+# Concept Attention Also Works on Video!
 
-If your are interested in testing out the capabilities of concept attention on video generation models check out the expriments in `experiments/video_model`. 
+ConceptAttention can also be applied to video generation models. Here's an example using CogVideoX:
+
+```python
+from concept_attention.cogvideox import ModifiedCogVideoXTransformer3DModel, ModifiedCogVideoXPipeline
+from diffusers.utils import export_to_video
+
+# Load model
+model_id = "THUDM/CogVideoX-5b"
+transformer = ModifiedCogVideoXTransformer3DModel.from_pretrained(
+    model_id, subfolder="transformer", torch_dtype=torch.bfloat16
+)
+pipe = ModifiedCogVideoXPipeline.from_pretrained(
+    model_id, transformer=transformer, torch_dtype=torch.bfloat16
+).to("cuda")
+
+# Generate video with concept attention
+prompt = "A golden retriever with a ball by a tree in the grass."
+concepts = ["dog", "grass", "sky", "tree", "ball"]
+
+video, concept_attention_dict = pipe(
+    prompt=prompt,
+    concepts=concepts,
+    num_frames=81,
+    num_inference_steps=50,
+    concept_attention_kwargs={
+        "timesteps": list(range(0, 50)),
+        "layers": list(range(0, 30)),
+    }
+)
+
+# Save video
+export_to_video(video.frames[0], "output.mov", fps=8)
+
+# Access concept attention maps (shape: num_concepts, num_frames, height, width)
+concept_attention_maps = concept_attention_dict["concept_attention_maps"]
+```
+
+See the full example at [`examples/generate_video_cogvideox.py`](examples/generate_video_cogvideox.py). 
 
 # Experiments
 
