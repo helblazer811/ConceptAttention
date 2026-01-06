@@ -123,7 +123,7 @@ class ModifiedDoubleStreamBlock(nn.Module):
         concept_img_attn = attention(q, k, v, pe_concepts_image)
         concept_attn = concept_img_attn[:, : concept_q.shape[2]]
         ###########################################################################
-        ############# Save the concept and image ouptut vectors for analysis #############
+        ############# Save the concept and image output vectors for analysis #############
         concept_attention_dict = {}
         # Concept attention outputs: (batch_size, num_concepts, dim)
         # Image attention outputs: (batch_size, num_image_tokens, dim)
@@ -135,6 +135,14 @@ class ModifiedDoubleStreamBlock(nn.Module):
             "batch num_concepts dim, batch num_img_tokens dim -> batch num_concepts num_img_tokens",
         )
         concept_attention_dict["concept_scores"] = concept_scores.cpu()
+
+        # Cross-attention scores: concept_q attending to img_k (Q·K attention)
+        cross_attention_scores = einops.einsum(
+            concept_q.detach(),
+            img_k.detach(),
+            "batch heads num_concepts dim, batch heads num_img dim -> batch num_concepts num_img",
+        )
+        concept_attention_dict["cross_attention_scores"] = cross_attention_scores.cpu()
         ##################################################################
 
         # calculate the img blocks

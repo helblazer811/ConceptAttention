@@ -5,7 +5,7 @@
 ConceptAttention is an interpretability method for multi-modal diffusion transformers. We implement it for the Flux DiT architecture in PyTorch. Check out the paper [here](https://arxiv.org/abs/2502.04320).
 
 <p align="center">
-    <img src="teaser.png" alt="Teaser Image" width="800"/>
+    <img src="images/teaser.png" alt="Teaser Image" width="800"/>
 </p>
 
 # Code setup
@@ -44,6 +44,24 @@ image.save("image.png")
 for concept, concept_heatmap in zip(concepts, concept_heatmaps):
     concept_heatmap.save(f"{concept}.png")
 ```
+
+# Examples
+
+Example scripts are located in the [`examples/`](examples) directory:
+
+| Script | Description |
+|--------|-------------|
+| `encode_image_flux.py` | Encode an existing image and generate concept heatmaps (Flux 1) |
+| `generate_image_flux.py` | Generate a new image with concept heatmaps (Flux 1) |
+| `generate_image_flux2.py` | Generate a new image with concept heatmaps (Flux 2) |
+
+To run an example:
+```bash
+cd examples
+python generate_image_flux.py
+```
+
+Output images will be saved to `examples/results/flux/` or `examples/results/flux2/` depending on the model.
 
 # Beta: ConceptAttention for a Video Generation Model
 
