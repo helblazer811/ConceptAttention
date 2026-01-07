@@ -7,4 +7,6 @@ src/
 .vscode/
 *.mov
 *.mp4
+*.gif
 .gradio/
+examples/results/
