@@ -54,6 +54,8 @@ Example scripts are located in the [`examples/`](examples) directory:
 | `encode_image_flux.py` | Encode an existing image and generate concept heatmaps (Flux 1) |
 | `generate_image_flux.py` | Generate a new image with concept heatmaps (Flux 1) |
 | `generate_image_flux2.py` | Generate a new image with concept heatmaps (Flux 2) |
+| `encode_image_sd3.py` | Encode an existing image and generate concept heatmaps (SD3) |
+| `generate_image_sd3.py` | Generate a new image with concept heatmaps (SD3) |
 | `generate_video_cogvideox.py` | Generate a video with concept attention heatmaps (CogVideoX) |
 
 To run an example:
