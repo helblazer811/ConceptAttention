@@ -68,6 +68,8 @@ Output images will be saved to `examples/results/flux/` or `examples/results/flu
 
 # Concept Attention Also Works on Video!
 
+https://github.com/user-attachments/assets/d4a0e100-1fc3-44c1-ae9e-09fb420bd003
+
 ConceptAttention can also be applied to video generation models. Here's an example using CogVideoX:
 
 ```python
