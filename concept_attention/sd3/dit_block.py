@@ -111,10 +111,23 @@ class CustomJointAttnProcessor2_0:
                 hidden_states[:, : residual.shape[1]],
                 hidden_states[:, residual.shape[1] :],
             )
-            encoder_output_vectors = encoder_hidden_states.clone().cpu()
-            image_output_vectors = hidden_states.clone().cpu()
-            # encoder_output_vectors = None
-            # image_output_vectors = None
+
+            # Check if we should cache vectors for this layer
+            cache_vectors = kwargs.get("cache_vectors", True)
+            layer_indices = kwargs.get("layer_indices", None)
+            current_layer_idx = kwargs.get("current_layer_idx", 0)
+
+            should_cache = cache_vectors and (
+                layer_indices is None or current_layer_idx in layer_indices
+            )
+
+            if should_cache:
+                encoder_output_vectors = encoder_hidden_states.clone().cpu()
+                image_output_vectors = hidden_states.clone().cpu()
+            else:
+                encoder_output_vectors = None
+                image_output_vectors = None
+
             if not attn.context_pre_only:
                 encoder_hidden_states = attn.to_add_out(encoder_hidden_states)
 
@@ -262,8 +275,11 @@ class CustomJointTransformerBlock(nn.Module):
         concept_hidden_states: torch.FloatTensor,
         temb: torch.FloatTensor,
         joint_attention_kwargs: Optional[Dict[str, Any]] = None,
+        **kwargs,
     ):
         joint_attention_kwargs = joint_attention_kwargs or {}
+        # Merge kwargs into joint_attention_kwargs for the attention processor
+        attn_kwargs = {**joint_attention_kwargs, **kwargs}
         if self.use_dual_attention:
             norm_hidden_states, gate_msa, shift_mlp, scale_mlp, gate_mlp, norm_hidden_states2, gate_msa2 = self.norm1(
                 hidden_states, emb=temb
@@ -286,13 +302,13 @@ class CustomJointTransformerBlock(nn.Module):
         attn_output, context_attn_output, _, _, cross_attention_maps = self.attn(
             hidden_states=norm_hidden_states,
             encoder_hidden_states=norm_encoder_hidden_states,
-            **joint_attention_kwargs,
+            **attn_kwargs,
         )
         # Perform the concept attention operation
         _, concept_attn_output, concept_output_vectors, image_output_vectors, _ = self.attn(
             hidden_states=norm_hidden_states,
             encoder_hidden_states=norm_concept_hidden_states,
-            **joint_attention_kwargs,
+            **attn_kwargs,
         )
         # Now project the attn_output vectors for the images onto the concept attention vectors to produce the concept attention maps
         # concept_attention_maps = einops.einsum(
@@ -676,6 +692,8 @@ class CustomSD3Transformer2DModel(
         joint_attention_kwargs: Optional[Dict[str, Any]] = None,
         return_dict: bool = True,
         skip_layers: Optional[List[int]] = None,
+        cache_vectors: bool = True,
+        layer_indices: Optional[List[int]] = None,
     ) -> Union[torch.FloatTensor, Transformer2DModelOutput]:
         """
         The [`SD3Transformer2DModel`] forward method.
@@ -774,9 +792,13 @@ class CustomSD3Transformer2DModel(
                     concept_hidden_states=concept_hidden_states,
                     temb=temb,
                     joint_attention_kwargs=joint_attention_kwargs,
+                    cache_vectors=cache_vectors,
+                    layer_indices=layer_indices,
+                    current_layer_idx=index_block,
                 )
                 for key in layer_concept_attention_outputs:
-                    concept_attention_outputs[key].append(layer_concept_attention_outputs[key])
+                    if layer_concept_attention_outputs[key] is not None:
+                        concept_attention_outputs[key].append(layer_concept_attention_outputs[key])
 
             # controlnet residual
             if block_controlnet_hidden_states is not None and block.context_pre_only is False:
@@ -800,7 +822,10 @@ class CustomSD3Transformer2DModel(
         )
 
         for key in concept_attention_outputs:
-            concept_attention_outputs[key] = torch.stack(concept_attention_outputs[key], dim=0)
+            if len(concept_attention_outputs[key]) > 0:
+                concept_attention_outputs[key] = torch.stack(concept_attention_outputs[key], dim=0)
+            else:
+                concept_attention_outputs[key] = None
 
         if USE_PEFT_BACKEND:
             # remove `lora_scale` from each PEFT layer

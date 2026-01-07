@@ -114,6 +114,9 @@ class ModifiedCogVideoXPipeline(CogVideoXPipeline):
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
         max_sequence_length: int = 226,
         concept_attention_kwargs: Optional[Dict[str, Any]] = None,
+        cache_vectors: bool = True,
+        layer_indices: Optional[List[int]] = None,
+        timestep_indices: Optional[List[int]] = None,
     ) -> Union[CogVideoXPipelineOutput, Tuple]:
         """
         Function invoked when calling the pipeline for generation.
@@ -303,6 +306,8 @@ class ModifiedCogVideoXPipeline(CogVideoXPipeline):
         concept_attention_dict = {
             "concept_attention_maps": [],
             "cross_attention_maps": [],
+            "concept_output_vectors": [],
+            "image_output_vectors": [],
         }
 
         with self.progress_bar(total=num_inference_steps) as progress_bar:
@@ -311,6 +316,11 @@ class ModifiedCogVideoXPipeline(CogVideoXPipeline):
             for i, t in enumerate(timesteps):
                 if self.interrupt:
                     continue
+
+                # Check if this timestep should be tracked
+                should_track_timestep = (
+                    timestep_indices is None or i in timestep_indices
+                )
 
                 latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
                 latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
@@ -328,13 +338,17 @@ class ModifiedCogVideoXPipeline(CogVideoXPipeline):
                     attention_kwargs=attention_kwargs,
                     return_dict=False,
                     concept_attention_kwargs=concept_attention_kwargs,
+                    cache_vectors=cache_vectors and should_track_timestep,
+                    layer_indices=layer_indices,
                 )
                 noise_pred = transformer_output[0]
                 current_concept_attention_dict = transformer_output[1]
-                for key in current_concept_attention_dict:
-                    if key not in concept_attention_dict:
-                        concept_attention_dict[key] = []
-                    concept_attention_dict[key].append(current_concept_attention_dict[key])
+                if should_track_timestep:
+                    for key in current_concept_attention_dict:
+                        if key not in concept_attention_dict:
+                            concept_attention_dict[key] = []
+                        if current_concept_attention_dict[key] is not None:
+                            concept_attention_dict[key].append(current_concept_attention_dict[key])
                 noise_pred = noise_pred.float()
 
                 # perform guidance
@@ -377,46 +391,70 @@ class ModifiedCogVideoXPipeline(CogVideoXPipeline):
 
         # Process the concept attention maps
         # Reshape the concept attention dict to the correct shape
-        concept_attention_dict["concept_attention_maps"] = torch.stack(concept_attention_dict["concept_attention_maps"], dim=0)
-        # Pull ou the timesteps of interest
-        concept_attention_dict["concept_attention_maps"] = concept_attention_dict["concept_attention_maps"][concept_attention_kwargs["timesteps"]]
-        # Rearrange the tensor to the correct shape
-        grid_height = height // (self.vae_scale_factor_spatial * self.transformer.config.patch_size)
-        grid_width = width // (self.vae_scale_factor_spatial * self.transformer.config.patch_size)
-        concept_attention_dict["concept_attention_maps"] = einops.rearrange(
-            concept_attention_dict["concept_attention_maps"],
-            "steps concepts (frames height width) -> steps concepts frames height width",
-            frames=latent_frames,
-            width=grid_width,
-            height=grid_height,
-        )
-        # Reduce
-        concept_attention_dict["concept_attention_maps"] = einops.reduce(
-            concept_attention_dict["concept_attention_maps"],
-            "steps concepts frames width height -> concepts frames width height",
-            reduction="mean",
-        )
+        if len(concept_attention_dict["concept_attention_maps"]) > 0:
+            concept_attention_dict["concept_attention_maps"] = torch.stack(concept_attention_dict["concept_attention_maps"], dim=0)
+            # Pull out the timesteps of interest
+            if concept_attention_kwargs is not None and "timesteps" in concept_attention_kwargs:
+                concept_attention_dict["concept_attention_maps"] = concept_attention_dict["concept_attention_maps"][concept_attention_kwargs["timesteps"]]
+        else:
+            concept_attention_dict["concept_attention_maps"] = None
+
+        # Stack output vectors if present
+        if len(concept_attention_dict.get("concept_output_vectors", [])) > 0:
+            concept_attention_dict["concept_output_vectors"] = torch.stack(concept_attention_dict["concept_output_vectors"], dim=0)
+        else:
+            concept_attention_dict["concept_output_vectors"] = None
+
+        if len(concept_attention_dict.get("image_output_vectors", [])) > 0:
+            concept_attention_dict["image_output_vectors"] = torch.stack(concept_attention_dict["image_output_vectors"], dim=0)
+        else:
+            concept_attention_dict["image_output_vectors"] = None
+
+        if concept_attention_dict["concept_attention_maps"] is not None:
+            # Rearrange the tensor to the correct shape
+            grid_height = height // (self.vae_scale_factor_spatial * self.transformer.config.patch_size)
+            grid_width = width // (self.vae_scale_factor_spatial * self.transformer.config.patch_size)
+            concept_attention_dict["concept_attention_maps"] = einops.rearrange(
+                concept_attention_dict["concept_attention_maps"],
+                "steps concepts (frames height width) -> steps concepts frames height width",
+                frames=latent_frames,
+                width=grid_width,
+                height=grid_height,
+            )
+            # Reduce
+            concept_attention_dict["concept_attention_maps"] = einops.reduce(
+                concept_attention_dict["concept_attention_maps"],
+                "steps concepts frames width height -> concepts frames width height",
+                reduction="mean",
+            )
+
         # Now process the cross attention maps
-        concept_attention_dict["cross_attention_maps"] = torch.stack(concept_attention_dict["cross_attention_maps"], dim=0)
-        # Order is (time, batch, frames * height * width)
-        # Pull out the timesteps of interest
-        concept_attention_dict["cross_attention_maps"] = concept_attention_dict["cross_attention_maps"][concept_attention_kwargs["timesteps"]]
-        # Apply a softmax over the concept dimension
-        concept_attention_dict["cross_attention_maps"] = torch.nn.functional.softmax(concept_attention_dict["cross_attention_maps"], dim=-2)
-        # Rearrange the tensor to the correct shape
-        concept_attention_dict["cross_attention_maps"] = einops.rearrange(
-            concept_attention_dict["cross_attention_maps"],
-            "steps concepts (frames height width) -> steps concepts frames height width",
-            frames=latent_frames,
-            width=grid_width,
-            height=grid_height,
-        )
-        # Reduce
-        concept_attention_dict["cross_attention_maps"] = einops.reduce(
-            concept_attention_dict["cross_attention_maps"],
-            "steps concepts frames width height -> concepts frames width height",
-            reduction="mean",
-        )
+        if len(concept_attention_dict.get("cross_attention_maps", [])) > 0:
+            concept_attention_dict["cross_attention_maps"] = torch.stack(concept_attention_dict["cross_attention_maps"], dim=0)
+            # Order is (time, batch, frames * height * width)
+            # Pull out the timesteps of interest
+            if concept_attention_kwargs is not None and "timesteps" in concept_attention_kwargs:
+                concept_attention_dict["cross_attention_maps"] = concept_attention_dict["cross_attention_maps"][concept_attention_kwargs["timesteps"]]
+            # Apply a softmax over the concept dimension
+            concept_attention_dict["cross_attention_maps"] = torch.nn.functional.softmax(concept_attention_dict["cross_attention_maps"], dim=-2)
+            # Rearrange the tensor to the correct shape
+            grid_height = height // (self.vae_scale_factor_spatial * self.transformer.config.patch_size)
+            grid_width = width // (self.vae_scale_factor_spatial * self.transformer.config.patch_size)
+            concept_attention_dict["cross_attention_maps"] = einops.rearrange(
+                concept_attention_dict["cross_attention_maps"],
+                "steps concepts (frames height width) -> steps concepts frames height width",
+                frames=latent_frames,
+                width=grid_width,
+                height=grid_height,
+            )
+            # Reduce
+            concept_attention_dict["cross_attention_maps"] = einops.reduce(
+                concept_attention_dict["cross_attention_maps"],
+                "steps concepts frames width height -> concepts frames width height",
+                reduction="mean",
+            )
+        else:
+            concept_attention_dict["cross_attention_maps"] = None
 
         if not output_type == "latent":
             # Discard any padding frames that were added for CogVideoX 1.5

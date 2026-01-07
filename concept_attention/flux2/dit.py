@@ -96,6 +96,7 @@ class ModifiedFlux2(nn.Module):
         guidance: Tensor,
         concepts: Tensor | None,
         concept_ids: Tensor | None,
+        **kwargs,
     ):
         num_txt_tokens = ctx.shape[1]
 
@@ -122,7 +123,10 @@ class ModifiedFlux2(nn.Module):
         ##########################################################################
         concept_attention_dicts = []
 
-        for block in self.double_blocks:
+        for layer_idx, block in enumerate(self.double_blocks):
+            # Update kwargs with current layer index
+            block_kwargs = {**kwargs, "current_layer_idx": layer_idx}
+
             img, txt, concepts, current_concept_attention_dict = block(
                 img,
                 txt,
@@ -132,6 +136,7 @@ class ModifiedFlux2(nn.Module):
                 pe_concept,
                 double_block_mod_img,
                 double_block_mod_txt,
+                **block_kwargs,
             )
             # Save the concept attention dict from this block
             concept_attention_dicts.append(current_concept_attention_dict)

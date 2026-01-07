@@ -35,6 +35,9 @@ class ConceptAttentionPipelineOutput:
     image: PIL.Image.Image | np.ndarray
     concept_heatmaps: list[PIL.Image.Image]
     cross_attention_maps: list[PIL.Image.Image]
+    # Raw output vectors (only populated when cache_vectors=True)
+    concept_output_vectors: torch.Tensor | np.ndarray | None = None
+    image_output_vectors: torch.Tensor | np.ndarray | None = None
 
 
 def compute_heatmaps_from_attention_dicts(
@@ -149,6 +152,38 @@ def heatmaps_to_pil_images(
     return pil_images
 
 
+def stack_output_vectors(
+    concept_attention_dicts: list,
+    key: str,
+) -> torch.Tensor | None:
+    """
+    Stack output vectors from concept_attention_dicts.
+    Vectors are already filtered to only requested layers/timesteps.
+
+    Args:
+        concept_attention_dicts: List of attention dicts per timestep,
+                                 each containing a list of dicts per layer
+        key: "concept_output_vectors" or "image_output_vectors"
+
+    Returns:
+        Tensor of shape (batch, time, layers, tokens, dim) or None if no vectors
+    """
+    all_timesteps = []
+    for timestep_dicts in concept_attention_dicts:
+        layers = []
+        for layer_dict in timestep_dicts:
+            if key in layer_dict:
+                layers.append(layer_dict[key])
+        if layers:
+            all_timesteps.append(torch.stack(layers))  # (layers, batch, tokens, dim)
+
+    if not all_timesteps:
+        return None
+
+    stacked = torch.stack(all_timesteps)  # (time, layers, batch, tokens, dim)
+    return stacked.permute(2, 0, 1, 3, 4)  # (batch, time, layers, tokens, dim)
+
+
 class ConceptAttentionFlux2Pipeline:
     """
     Pipeline for generating images with Flux 2 and extracting concept attention heatmaps.
@@ -225,9 +260,17 @@ class ConceptAttentionFlux2Pipeline:
         concept_ids: Tensor,
         timesteps: list[float],
         guidance: float,
+        cache_vectors: bool = True,
+        layer_indices: list[int] | None = None,
+        timestep_indices: list[int] | None = None,
     ) -> tuple[Tensor, list]:
         """
         Denoising loop that tracks concept attention at each step.
+
+        Args:
+            cache_vectors: Whether to cache raw output vectors
+            layer_indices: Which layers to cache vectors for (None = all)
+            timestep_indices: Which timesteps to cache vectors for (None = all)
 
         Returns:
             Tuple of (denoised_img, concept_attention_dicts)
@@ -237,11 +280,16 @@ class ConceptAttentionFlux2Pipeline:
         )
         concept_attention_dicts = []
 
-        for t_curr, t_prev in tqdm(
+        for step_idx, (t_curr, t_prev) in enumerate(tqdm(
             zip(timesteps[:-1], timesteps[1:]),
             total=len(timesteps) - 1,
             desc="Denoising"
-        ):
+        )):
+            # Check if this timestep should be tracked
+            should_track_timestep = (
+                timestep_indices is None or step_idx in timestep_indices
+            )
+
             t_vec = torch.full(
                 (img.shape[0],), t_curr, dtype=img.dtype, device=img.device
             )
@@ -255,6 +303,10 @@ class ConceptAttentionFlux2Pipeline:
                 guidance=guidance_vec,
                 concepts=concepts,
                 concept_ids=concept_ids,
+                # Pass caching settings
+                cache_vectors=cache_vectors and should_track_timestep,
+                layer_indices=layer_indices,
+                current_timestep=step_idx,
             )
             concept_attention_dicts.append(current_concept_attention_dict)
             img = img + (t_prev - t_curr) * pred
@@ -277,6 +329,7 @@ class ConceptAttentionFlux2Pipeline:
         softmax: bool = True,
         softmax_temperature: float = 1000.0,
         cmap: str = "plasma",
+        cache_vectors: bool = True,
     ) -> ConceptAttentionPipelineOutput:
         """
         Generate an image with Flux 2 and extract concept attention heatmaps.
@@ -295,9 +348,11 @@ class ConceptAttentionFlux2Pipeline:
             softmax: Whether to apply softmax normalization
             softmax_temperature: Temperature for softmax
             cmap: Matplotlib colormap for heatmaps
+            cache_vectors: Whether to cache raw output vectors (default: True)
 
         Returns:
-            ConceptAttentionPipelineOutput with image, concept_heatmaps, and cross_attention_maps
+            ConceptAttentionPipelineOutput with image, concept_heatmaps, cross_attention_maps,
+            and optionally concept_output_vectors and image_output_vectors
         """
         # Default layer indices (last 3 of 8 double blocks)
         if layer_indices is None:
@@ -344,6 +399,9 @@ class ConceptAttentionFlux2Pipeline:
             concept_ids=concept_ids,
             timesteps=schedule,
             guidance=guidance,
+            cache_vectors=cache_vectors,
+            layer_indices=layer_indices,
+            timestep_indices=timesteps,
         )
 
         # Offload flow model, load VAE
@@ -402,10 +460,23 @@ class ConceptAttentionFlux2Pipeline:
         if self.offload_model:
             self.mistral = self.mistral.to(self.device)
 
+        # Stack raw output vectors if caching is enabled
+        concept_output_vectors = None
+        image_output_vectors = None
+        if cache_vectors:
+            concept_output_vectors = stack_output_vectors(
+                concept_attention_dicts, "concept_output_vectors"
+            )
+            image_output_vectors = stack_output_vectors(
+                concept_attention_dicts, "image_output_vectors"
+            )
+
         return ConceptAttentionPipelineOutput(
             image=image,
             concept_heatmaps=concept_heatmaps,
             cross_attention_maps=cross_attention_maps,
+            concept_output_vectors=concept_output_vectors,
+            image_output_vectors=image_output_vectors,
         )
 
     @torch.no_grad()
@@ -424,6 +495,7 @@ class ConceptAttentionFlux2Pipeline:
         softmax: bool = True,
         softmax_temperature: float = 1000.0,
         cmap: str = "plasma",
+        cache_vectors: bool = True,
     ) -> ConceptAttentionPipelineOutput:
         """
         Encode an existing image and extract concept attention heatmaps.
@@ -442,9 +514,11 @@ class ConceptAttentionFlux2Pipeline:
             softmax: Whether to apply softmax normalization
             softmax_temperature: Temperature for softmax
             cmap: Matplotlib colormap for heatmaps
+            cache_vectors: Whether to cache raw output vectors (default: True)
 
         Returns:
-            ConceptAttentionPipelineOutput with original image, concept_heatmaps, and cross_attention_maps
+            ConceptAttentionPipelineOutput with original image, concept_heatmaps, cross_attention_maps,
+            and optionally concept_output_vectors and image_output_vectors
         """
         # Default layer indices
         if layer_indices is None:
@@ -499,6 +573,9 @@ class ConceptAttentionFlux2Pipeline:
             guidance=guidance_vec,
             concepts=concepts_tensor,
             concept_ids=concept_ids,
+            cache_vectors=cache_vectors,
+            layer_indices=layer_indices,
+            current_timestep=0,
         )
 
         # Wrap in list for compatibility with compute function
@@ -545,8 +622,21 @@ class ConceptAttentionFlux2Pipeline:
             self.mistral = self.mistral.to(self.device)
             torch.cuda.empty_cache()
 
+        # Stack raw output vectors if caching is enabled
+        concept_output_vectors = None
+        image_output_vectors = None
+        if cache_vectors:
+            concept_output_vectors = stack_output_vectors(
+                concept_attention_dicts, "concept_output_vectors"
+            )
+            image_output_vectors = stack_output_vectors(
+                concept_attention_dicts, "image_output_vectors"
+            )
+
         return ConceptAttentionPipelineOutput(
             image=image_resized,
             concept_heatmaps=concept_heatmaps,
             cross_attention_maps=cross_attention_maps,
+            concept_output_vectors=concept_output_vectors,
+            image_output_vectors=image_output_vectors,
         )

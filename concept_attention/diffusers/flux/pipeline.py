@@ -54,9 +54,15 @@ class FluxConceptAttentionOutput(BaseOutput):
             The generated images.
         concept_attention_maps (`List[PIL.Image.Image]` or `np.ndarray`)
             The concept attention maps.
+        concept_output_vectors (`torch.Tensor` or `None`)
+            The raw concept output vectors.
+        image_output_vectors (`torch.Tensor` or `None`)
+            The raw image output vectors.
     """
     images: Union[List[PIL.Image.Image], np.ndarray]
     concept_attention_maps: Union[List[PIL.Image.Image], np.ndarray]
+    concept_output_vectors: Union[torch.Tensor, None] = None
+    image_output_vectors: Union[torch.Tensor, None] = None
 
 class FluxWithConceptAttentionPipeline(
     DiffusionPipeline,
@@ -625,6 +631,9 @@ class FluxWithConceptAttentionPipeline(
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
         max_sequence_length: int = 512,
+        cache_vectors: bool = True,
+        layer_indices: Optional[List[int]] = None,
+        timestep_indices: Optional[List[int]] = None,
     ):
         r"""
         Function invoked when calling the pipeline for generation.
@@ -887,12 +896,19 @@ class FluxWithConceptAttentionPipeline(
 
         # Make concept attention maps
         all_concept_attention_maps = []
+        all_concept_output_vectors = []
+        all_image_output_vectors = []
 
         # 6. Denoising loop
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
                 if self.interrupt:
                     continue
+
+                # Check if this timestep should be tracked
+                should_track_timestep = (
+                    timestep_indices is None or i in timestep_indices
+                )
 
                 self._current_timestep = t
                 if image_embeds is not None:
@@ -901,7 +917,7 @@ class FluxWithConceptAttentionPipeline(
                 timestep = t.expand(latents.shape[0]).to(latents.dtype)
 
                 # Don't do concept attention if the timestep is not in the concept_attention_kwargs
-                if concept_attention_kwargs is not None and not i in concept_attention_kwargs["timesteps"]:
+                if concept_attention_kwargs is not None and not i in concept_attention_kwargs.get("timesteps", []):
                     current_concept_embeddings = None
                 else:
                     current_concept_embeddings = concept_embeddings
@@ -920,10 +936,18 @@ class FluxWithConceptAttentionPipeline(
                     joint_attention_kwargs=self.joint_attention_kwargs,
                     concept_attention_kwargs=concept_attention_kwargs,
                     return_dict=False,
+                    cache_vectors=cache_vectors and should_track_timestep,
+                    layer_indices=layer_indices,
                 )
-                noise_pred, concept_attention_maps = transformer_output
-                if i in concept_attention_kwargs["timesteps"]:
-                    all_concept_attention_maps.append(concept_attention_maps)
+                noise_pred, concept_attention_maps, concept_vecs, image_vecs = transformer_output
+                if concept_attention_kwargs is not None and i in concept_attention_kwargs.get("timesteps", []):
+                    if concept_attention_maps is not None:
+                        all_concept_attention_maps.append(concept_attention_maps)
+                if should_track_timestep:
+                    if concept_vecs is not None:
+                        all_concept_output_vectors.append(concept_vecs)
+                    if image_vecs is not None:
+                        all_image_output_vectors.append(image_vecs)
 
                 if do_true_cfg:
                     if negative_image_embeds is not None:
@@ -978,45 +1002,62 @@ class FluxWithConceptAttentionPipeline(
             image = self.image_processor.postprocess(image, output_type=output_type)
 
         ################### Process the concept attention maps ###################
-        concept_attention_maps = torch.stack(all_concept_attention_maps).to(torch.float32)
-        # Apply a softmax over the concept dimension
-        concept_attention_maps = torch.softmax(concept_attention_maps, dim=-1)
-        concept_attention_maps = concept_attention_maps.detach().cpu().numpy()
-        # Average over time and layers
-        concept_attention_maps = einops.reduce(
-            concept_attention_maps, 
-            "time layers batch concepts patches -> batch concepts patches", 
-            reduction="mean"
-        )
-        # Reshape to image size 
-        concept_attention_maps = einops.rearrange(
-            concept_attention_maps, 
-            "batch concepts (h w) -> batch concepts h w",
-            h=height // 16,
-            w=width // 16
-        )
-        if not output_type == "latent":
-            concept_attention_maps = (concept_attention_maps - concept_attention_maps.min()) / (concept_attention_maps.max() - concept_attention_maps.min())
-            # Convert to cmap
-            convert_to_plasma = lambda x: np.uint8(plt.get_cmap("plasma")(x)[:, :, :3] * 255)
-            concept_attention_maps = [
-                [
-                    PIL.Image.fromarray(
-                        convert_to_plasma(concept_attention_map)
-                    )
-                    for concept_attention_map in concept_attention_maps[batch_index]
+        if len(all_concept_attention_maps) > 0:
+            concept_attention_maps = torch.stack(all_concept_attention_maps).to(torch.float32)
+            # Apply a softmax over the concept dimension
+            concept_attention_maps = torch.softmax(concept_attention_maps, dim=-1)
+            concept_attention_maps = concept_attention_maps.detach().cpu().numpy()
+            # Average over time and layers
+            concept_attention_maps = einops.reduce(
+                concept_attention_maps,
+                "time layers batch concepts patches -> batch concepts patches",
+                reduction="mean"
+            )
+            # Reshape to image size
+            concept_attention_maps = einops.rearrange(
+                concept_attention_maps,
+                "batch concepts (h w) -> batch concepts h w",
+                h=height // 16,
+                w=width // 16
+            )
+            if not output_type == "latent":
+                concept_attention_maps = (concept_attention_maps - concept_attention_maps.min()) / (concept_attention_maps.max() - concept_attention_maps.min())
+                # Convert to cmap
+                convert_to_plasma = lambda x: np.uint8(plt.get_cmap("plasma")(x)[:, :, :3] * 255)
+                concept_attention_maps = [
+                    [
+                        PIL.Image.fromarray(
+                            convert_to_plasma(concept_attention_map)
+                        )
+                        for concept_attention_map in concept_attention_maps[batch_index]
+                    ]
+                    for batch_index in range(concept_attention_maps.shape[0])
                 ]
-                for batch_index in range(concept_attention_maps.shape[0])
-            ]
+        else:
+            concept_attention_maps = None
         ###########################################################################
+
+        ################### Process output vectors ###################
+        if len(all_concept_output_vectors) > 0:
+            all_concept_output_vectors = torch.stack(all_concept_output_vectors, dim=0)  # (time, layers, batch, concepts, dim)
+        else:
+            all_concept_output_vectors = None
+
+        if len(all_image_output_vectors) > 0:
+            all_image_output_vectors = torch.stack(all_image_output_vectors, dim=0)  # (time, layers, batch, patches, dim)
+        else:
+            all_image_output_vectors = None
+        ##############################################################
 
         # Offload all models
         self.maybe_free_model_hooks()
 
         if not return_dict:
-            return (image, concept_attention_maps)
+            return (image, concept_attention_maps, all_concept_output_vectors, all_image_output_vectors)
 
         return FluxConceptAttentionOutput(
             images=image,
             concept_attention_maps=concept_attention_maps,
+            concept_output_vectors=all_concept_output_vectors,
+            image_output_vectors=all_image_output_vectors,
         )

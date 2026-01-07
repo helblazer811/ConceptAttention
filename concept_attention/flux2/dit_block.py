@@ -65,6 +65,7 @@ class ModifiedDoubleStreamBlock(nn.Module):
         pe_concept: Tensor,
         mod_img: tuple[Tensor, Tensor],
         mod_txt: tuple[Tensor, Tensor],
+        **kwargs,
     ) -> tuple[Tensor, Tensor]:
         img_mod1, img_mod2 = mod_img
         txt_mod1, txt_mod2 = mod_txt
@@ -129,6 +130,20 @@ class ModifiedDoubleStreamBlock(nn.Module):
         # Image attention outputs: (batch_size, num_image_tokens, dim)
         concept_outputs = concept_attn.detach()
         img_outputs = img_attn.detach()
+
+        # Check if we should cache raw vectors for this layer
+        cache_vectors = kwargs.get("cache_vectors", True)
+        layer_indices = kwargs.get("layer_indices", None)
+        current_layer_idx = kwargs.get("current_layer_idx", 0)
+
+        should_cache = cache_vectors and (
+            layer_indices is None or current_layer_idx in layer_indices
+        )
+
+        if should_cache:
+            concept_attention_dict["concept_output_vectors"] = concept_outputs.cpu()
+            concept_attention_dict["image_output_vectors"] = img_outputs.cpu()
+
         concept_scores = einops.einsum(
             concept_outputs,
             img_outputs,

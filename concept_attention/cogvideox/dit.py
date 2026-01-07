@@ -305,6 +305,8 @@ class ModifiedCogVideoXTransformer3DModel(ModelMixin, ConfigMixin, PeftAdapterMi
         attention_kwargs: Optional[Dict[str, Any]] = None,
         return_dict: bool = True,
         concept_attention_kwargs: Optional[Dict[str, Any]] = None,
+        cache_vectors: bool = True,
+        layer_indices: Optional[list] = None,
     ):
         if attention_kwargs is not None:
             attention_kwargs = attention_kwargs.copy()
@@ -355,6 +357,8 @@ class ModifiedCogVideoXTransformer3DModel(ModelMixin, ConfigMixin, PeftAdapterMi
         concept_attention_dict = {
             "concept_attention_maps": [],
             "cross_attention_maps": [],
+            "concept_output_vectors": [],
+            "image_output_vectors": [],
         }
 
         # 3. Transformer blocks
@@ -383,45 +387,54 @@ class ModifiedCogVideoXTransformer3DModel(ModelMixin, ConfigMixin, PeftAdapterMi
                     encoder_hidden_states=encoder_hidden_states,
                     concept_hidden_states=concept_hidden_states,
                     temb=emb,
-                    image_rotary_emb=image_rotary_emb
+                    image_rotary_emb=image_rotary_emb,
+                    cache_vectors=cache_vectors,
+                    layer_indices=layer_indices,
+                    current_layer_idx=i,
                 )
 
             for key in current_concept_attention_dict:
-                concept_attention_dict[key].append(current_concept_attention_dict[key])
+                if current_concept_attention_dict[key] is not None:
+                    concept_attention_dict[key].append(current_concept_attention_dict[key])
 
         for key in concept_attention_dict:
-            concept_attention_dict[key] = torch.stack(concept_attention_dict[key], dim=1)
+            if len(concept_attention_dict[key]) > 0:
+                concept_attention_dict[key] = torch.stack(concept_attention_dict[key], dim=1)
+            else:
+                concept_attention_dict[key] = None
 
         ################### Average concept maps over layers #########################
         # Do some merging of the concept attention maps to preserve memory
-        # a. Pull out the index 1 from the batch dimension
-        concept_attention_dict["concept_attention_maps"] = concept_attention_dict["concept_attention_maps"][1]
-        # b. Pull out only the layers of interest
-        concept_attention_dict["concept_attention_maps"] = concept_attention_dict["concept_attention_maps"][concept_attention_kwargs["layers"]]
-        # c. Apply a softmax over the concept dimension
-        concept_attention_dict["concept_attention_maps"] = torch.nn.functional.softmax(
-            concept_attention_dict["concept_attention_maps"], 
-            dim=-2
-        )
-        # d. Pull out only the concepts of interest
-        concept_attention_dict["concept_attention_maps"] = concept_attention_dict["concept_attention_maps"][:, :len(concept_attention_kwargs["concepts"])]
-        # e. Average over the layers
-        concept_attention_dict["concept_attention_maps"] = torch.mean(
-            concept_attention_dict["concept_attention_maps"], 
-            dim=0
-        )
+        if concept_attention_dict["concept_attention_maps"] is not None and concept_attention_kwargs is not None:
+            # a. Pull out the index 1 from the batch dimension
+            concept_attention_dict["concept_attention_maps"] = concept_attention_dict["concept_attention_maps"][1]
+            # b. Pull out only the layers of interest
+            concept_attention_dict["concept_attention_maps"] = concept_attention_dict["concept_attention_maps"][concept_attention_kwargs["layers"]]
+            # c. Apply a softmax over the concept dimension
+            concept_attention_dict["concept_attention_maps"] = torch.nn.functional.softmax(
+                concept_attention_dict["concept_attention_maps"],
+                dim=-2
+            )
+            # d. Pull out only the concepts of interest
+            concept_attention_dict["concept_attention_maps"] = concept_attention_dict["concept_attention_maps"][:, :len(concept_attention_kwargs["concepts"])]
+            # e. Average over the layers
+            concept_attention_dict["concept_attention_maps"] = torch.mean(
+                concept_attention_dict["concept_attention_maps"],
+                dim=0
+            )
         # Also do the same for cross attention maps
-        concept_attention_dict["cross_attention_maps"] = concept_attention_dict["cross_attention_maps"][1]
-        concept_attention_dict["cross_attention_maps"] = concept_attention_dict["cross_attention_maps"][concept_attention_kwargs["layers"]]
-        concept_attention_dict["cross_attention_maps"] = torch.nn.functional.softmax(
-            concept_attention_dict["cross_attention_maps"], 
-            dim=-2
-        )
-        concept_attention_dict["cross_attention_maps"] = concept_attention_dict["cross_attention_maps"][:, :len(concept_attention_kwargs["concepts"])]
-        concept_attention_dict["cross_attention_maps"] = torch.mean(
-            concept_attention_dict["cross_attention_maps"], 
-            dim=0
-        )
+        if concept_attention_dict["cross_attention_maps"] is not None and concept_attention_kwargs is not None:
+            concept_attention_dict["cross_attention_maps"] = concept_attention_dict["cross_attention_maps"][1]
+            concept_attention_dict["cross_attention_maps"] = concept_attention_dict["cross_attention_maps"][concept_attention_kwargs["layers"]]
+            concept_attention_dict["cross_attention_maps"] = torch.nn.functional.softmax(
+                concept_attention_dict["cross_attention_maps"],
+                dim=-2
+            )
+            concept_attention_dict["cross_attention_maps"] = concept_attention_dict["cross_attention_maps"][:, :len(concept_attention_kwargs["concepts"])]
+            concept_attention_dict["cross_attention_maps"] = torch.mean(
+                concept_attention_dict["cross_attention_maps"],
+                dim=0
+            )
         ###############################################################################
 
         if not self.config.use_rotary_positional_embeddings:

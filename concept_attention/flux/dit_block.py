@@ -175,20 +175,30 @@ class ModifiedDoubleStreamBlock(nn.Module):
             concept_attn = einops.rearrange(concept_attn, "B H L D -> B L (H D)")
             img_attn = einops.rearrange(img_attn, "B H L D -> B L (H D)")
 
-        # # Compute the cross attentions
-        # cross_attention_maps = einops.einsum(
-        #     concept_q,
-        #     img_q,
-        #     "batch head concepts dim, batch had patches dim -> batch head concepts patches"
-        # )
-        # Collect all of the concept attention information 
-        concept_attention_dict = {
-            "output_space_concept_vectors": concept_attn.detach(),
-            "output_space_image_vectors": img_attn.detach(),
-            # "cross_attention_maps": cross_attention_maps.detach(),
-            "cross_attention_concept_vectors": concept_q.detach(),
-            "cross_attention_image_vectors": img_q.detach()
-        }
+        # Check if we should cache vectors for this layer
+        cache_vectors = kwargs.get("cache_vectors", True)
+        layer_indices = kwargs.get("layer_indices", None)
+        current_layer_idx = kwargs.get("current_layer_idx", 0)
+
+        should_cache = cache_vectors and (
+            layer_indices is None or current_layer_idx in layer_indices
+        )
+
+        # Collect concept attention information (conditionally cache vectors)
+        concept_attention_dict = {}
+        if should_cache:
+            concept_attention_dict["output_space_concept_vectors"] = concept_attn.detach().cpu()
+            concept_attention_dict["output_space_image_vectors"] = img_attn.detach().cpu()
+            concept_attention_dict["cross_attention_concept_vectors"] = concept_q.detach().cpu()
+            concept_attention_dict["cross_attention_image_vectors"] = img_q.detach().cpu()
+
+        # Compute concept scores (always computed for heatmaps)
+        concept_scores = einops.einsum(
+            concept_attn.detach(),
+            img_attn.detach(),
+            "batch num_concepts dim, batch num_img_tokens dim -> batch num_concepts num_img_tokens",
+        )
+        concept_attention_dict["concept_scores"] = concept_scores.cpu()
         # Do the block updates
         # Calculate the img blocks
         img = img + img_mod1.gate * self.img_attn.proj(img_attn)

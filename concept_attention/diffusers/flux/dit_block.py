@@ -28,6 +28,7 @@ class FluxTransformerBlockWithConceptAttention(FluxTransformerBlock):
         concept_rotary_emb: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         joint_attention_kwargs: Optional[Dict[str, Any]] = None,
         concept_attention_kwargs: Optional[Dict[str, Any]] = None,
+        **kwargs,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         norm_hidden_states, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.norm1(
             hidden_states, 
@@ -78,6 +79,22 @@ class FluxTransformerBlockWithConceptAttention(FluxTransformerBlock):
             )
             # Detach and move to cpu the concept attention map
             concept_attention_map = concept_attention_map.detach().cpu()
+
+            # Check if we should cache vectors for this layer
+            cache_vectors = kwargs.get("cache_vectors", True)
+            layer_indices = kwargs.get("layer_indices", None)
+            current_layer_idx = kwargs.get("current_layer_idx", 0)
+
+            should_cache = cache_vectors and (
+                layer_indices is None or current_layer_idx in layer_indices
+            )
+
+            if should_cache:
+                concept_output_vectors = concept_attn_output.detach().cpu()
+                image_output_vectors = attn_output.detach().cpu()
+            else:
+                concept_output_vectors = None
+                image_output_vectors = None
             # Now do the residual stream update 
             concept_attn_output = concept_gate_msa.unsqueeze(1) * concept_attn_output
             concept_hidden_states = concept_hidden_states + concept_attn_output
@@ -90,6 +107,8 @@ class FluxTransformerBlockWithConceptAttention(FluxTransformerBlock):
         else:
             concept_attention_map = None
             concept_hidden_states = None
+            concept_output_vectors = None
+            image_output_vectors = None
         ######################################################################################
 
         # Process attention outputs for the `hidden_states`.
@@ -119,4 +138,4 @@ class FluxTransformerBlockWithConceptAttention(FluxTransformerBlock):
         if encoder_hidden_states.dtype == torch.float16:
             encoder_hidden_states = encoder_hidden_states.clip(-65504, 65504)
 
-        return encoder_hidden_states, hidden_states, concept_hidden_states, concept_attention_map
+        return encoder_hidden_states, hidden_states, concept_hidden_states, concept_attention_map, concept_output_vectors, image_output_vectors

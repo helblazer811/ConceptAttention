@@ -109,19 +109,23 @@ def denoise(
     concept_vec: Tensor = None,
     return_intermediate_images=True,
     joint_attention_kwargs=None,
+    # Vector caching parameters
+    cache_vectors: bool = True,
+    layer_indices: list[int] | None = None,
+    timestep_indices: list[int] | None = None,
 ):
     intermediate_images = [img]
-    combined_concept_attention_dict = {
-        "output_space_concept_vectors": [],
-        "output_space_image_vectors": [],
-        # "cross_attention_maps": [],
-        "cross_attention_concept_vectors": [],
-        "cross_attention_image_vectors": [],
-    }
+    concept_attention_dicts = []
+
     # this is ignored for schnell
     guidance_vec = torch.full((img.shape[0],), guidance, device=img.device, dtype=img.dtype)
-    iteration = 0
-    for t_curr, t_prev in tqdm(zip(timesteps[:-1], timesteps[1:])):
+
+    for step_idx, (t_curr, t_prev) in enumerate(tqdm(zip(timesteps[:-1], timesteps[1:]))):
+        # Check if this timestep should be tracked
+        should_track_timestep = (
+            timestep_indices is None or step_idx in timestep_indices
+        )
+
         t_vec = torch.full((img.shape[0],), t_curr, dtype=img.dtype, device=img.device)
         pred, concept_attention_dict = model(
             img=img,
@@ -134,22 +138,21 @@ def denoise(
             y=vec,
             timesteps=t_vec,
             guidance=guidance_vec,
-            iteration=iteration,
-            joint_attention_kwargs=joint_attention_kwargs
+            iteration=step_idx,
+            joint_attention_kwargs=joint_attention_kwargs,
+            # Pass caching settings
+            cache_vectors=cache_vectors and should_track_timestep,
+            layer_indices=layer_indices,
         )
 
         img = img + (t_prev - t_curr) * pred
         intermediate_images.append(img)
-        # increment iteration
-        iteration += 1
 
-        for key in combined_concept_attention_dict.keys():
-            combined_concept_attention_dict[key].append(concept_attention_dict[key])
+        # Only append if tracking this timestep
+        if should_track_timestep:
+            concept_attention_dicts.append(concept_attention_dict)
 
-    for key in combined_concept_attention_dict.keys():
-        combined_concept_attention_dict[key] = torch.stack(combined_concept_attention_dict[key], dim=0)
-
-    return img, intermediate_images, combined_concept_attention_dict
+    return img, intermediate_images, concept_attention_dicts
 
 def unpack(x: Tensor, height: int, width: int) -> Tensor:
     return rearrange(

@@ -35,6 +35,7 @@ class CustomCogVideoXAttnProcessor2_0:
         concept_hidden_states: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         image_rotary_emb: Optional[torch.Tensor] = None,
+        **kwargs,
     ) -> torch.Tensor:
         text_seq_length = encoder_hidden_states.size(1)
 
@@ -128,11 +129,25 @@ class CustomCogVideoXAttnProcessor2_0:
             image_hidden_states,
             "batch concepts dim, batch patches dim -> batch concepts patches"
         )
+
+        # Check if we should cache vectors for this layer
+        cache_vectors = kwargs.get("cache_vectors", True)
+        layer_indices = kwargs.get("layer_indices", None)
+        current_layer_idx = kwargs.get("current_layer_idx", 0)
+
+        should_cache = cache_vectors and (
+            layer_indices is None or current_layer_idx in layer_indices
+        )
+
         # Save the info
         concept_attention_dict = {
-            "concept_attention_maps": concept_attention_maps,
-            "cross_attention_maps": cross_attention_maps,
+            "concept_attention_maps": concept_attention_maps.detach().cpu(),
+            "cross_attention_maps": cross_attention_maps.detach().cpu(),
         }
+
+        if should_cache:
+            concept_attention_dict["concept_output_vectors"] = concept_hidden_states.detach().cpu()
+            concept_attention_dict["image_output_vectors"] = image_hidden_states.detach().cpu()
         # #############################################
 
         # linear proj
@@ -237,7 +252,8 @@ class ModifiedCogVideoXBlock(nn.Module):
         encoder_hidden_states: torch.Tensor,
         concept_hidden_states: torch.Tensor,
         temb: torch.Tensor,
-        image_rotary_emb: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        image_rotary_emb: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        **kwargs,
     ) -> torch.Tensor:
         text_seq_length = encoder_hidden_states.size(1)
 
@@ -257,7 +273,8 @@ class ModifiedCogVideoXBlock(nn.Module):
             hidden_states=norm_hidden_states,
             encoder_hidden_states=norm_encoder_hidden_states,
             concept_hidden_states=norm_concept_hidden_states,
-            image_rotary_emb=image_rotary_emb
+            image_rotary_emb=image_rotary_emb,
+            **kwargs,
         )
 
         concept_hidden_states = concept_hidden_states + concept_gate_msa * attn_concept_hidden_states

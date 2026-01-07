@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from concept_attention.flux.flux.src.flux.sampling import prepare
 from concept_attention.segmentation import add_noise_to_image, encode_image
-from concept_attention.utils import embed_concepts, linear_normalization
+from concept_attention.utils import embed_concepts, linear_normalization, stack_output_vectors
 import torch
 import einops
 from tqdm import tqdm
@@ -21,6 +21,9 @@ class ConceptAttentionPipelineOutput():
     image: PIL.Image.Image | np.ndarray
     concept_heatmaps: list[PIL.Image.Image]
     cross_attention_maps: list[PIL.Image.Image]
+    # Raw output vectors (only populated when cache_vectors=True)
+    concept_output_vectors: torch.Tensor | np.ndarray | None = None
+    image_output_vectors: torch.Tensor | np.ndarray | None = None
 
 
 def compute_heatmaps_from_vectors(
@@ -102,7 +105,7 @@ class ConceptAttentionFluxPipeline():
 
     @torch.no_grad()
     def generate_image(
-        self, 
+        self,
         prompt: str,
         concepts: list[str],
         width: int = 1024,
@@ -115,7 +118,8 @@ class ConceptAttentionFluxPipeline():
         guidance: float = 0.0,
         timesteps=None,
         softmax: bool = True,
-        cmap="plasma"
+        cmap="plasma",
+        cache_vectors: bool = True,
     ) -> ConceptAttentionPipelineOutput:
         """
             Generate an image with flux, given a list of concepts.
@@ -135,6 +139,9 @@ class ConceptAttentionFluxPipeline():
             concepts=concepts,
             seed=seed,
             guidance=guidance,
+            cache_vectors=cache_vectors,
+            layer_indices=layer_indices,
+            timestep_indices=timesteps,
         )
         
         cross_attention_maps = compute_heatmaps_from_vectors(
@@ -180,10 +187,16 @@ class ConceptAttentionFluxPipeline():
 
             cross_attention_maps = [PIL.Image.fromarray(cross_attention_map) for cross_attention_map in colored_cross_attention_maps]
 
+        # Extract raw vectors if caching was enabled
+        concept_output_vectors = concept_attention_dict.get("output_space_concept_vectors", None)
+        image_output_vectors = concept_attention_dict.get("output_space_image_vectors", None)
+
         return ConceptAttentionPipelineOutput(
             image=image,
             concept_heatmaps=concept_heatmaps,
-            cross_attention_maps=cross_attention_maps
+            cross_attention_maps=cross_attention_maps,
+            concept_output_vectors=concept_output_vectors,
+            image_output_vectors=image_output_vectors,
         )
 
     def encode_image(
@@ -202,7 +215,8 @@ class ConceptAttentionFluxPipeline():
         seed: int = 0,
         cmap="plasma",
         stop_after_multi_modal_attentions=True,
-        softmax=True
+        softmax=True,
+        cache_vectors: bool = True,
     ) -> ConceptAttentionPipelineOutput:
         """
             Encode an image with flux, given a list of concepts.
@@ -265,7 +279,7 @@ class ConceptAttentionFluxPipeline():
             t_curr = timesteps[0]
             t_prev = timesteps[1]
             t_vec = torch.full((encoded_image.shape[0],), t_curr, dtype=encoded_image.dtype, device=encoded_image.device)
-            _, concept_attention_dict = self.flux_generator.model(
+            _, concept_attention_dicts = self.flux_generator.model(
                 img=inp["img"],
                 img_ids=inp["img_ids"],
                 txt=inp["txt"],
@@ -278,10 +292,18 @@ class ConceptAttentionFluxPipeline():
                 guidance=guidance_vec,
                 stop_after_multimodal_attentions=stop_after_multi_modal_attentions, # Always true for the demo
                 joint_attention_kwargs=None,
+                cache_vectors=cache_vectors,
+                layer_indices=layer_indices,
             )
 
+            # Stack vectors from layers for this sample
             for key in combined_concept_attention_dict.keys():
-                combined_concept_attention_dict[key].append(concept_attention_dict[key])
+                layers = []
+                for layer_dict in concept_attention_dicts:
+                    if key in layer_dict:
+                        layers.append(layer_dict[key])
+                if layers:
+                    combined_concept_attention_dict[key].append(torch.stack(layers))
 
         # Pull out the concept and image vectors from each block
         for key in combined_concept_attention_dict.keys():
@@ -331,9 +353,24 @@ class ConceptAttentionFluxPipeline():
 
             cross_attention_maps = [PIL.Image.fromarray(cross_attention_map) for cross_attention_map in colored_cross_attention_maps]
 
+        # Extract raw vectors if caching was enabled
+        concept_output_vectors = combined_concept_attention_dict.get("output_space_concept_vectors", None)
+        if concept_output_vectors is not None and len(concept_output_vectors) > 0:
+            concept_output_vectors = torch.stack(concept_output_vectors) if isinstance(concept_output_vectors, list) else concept_output_vectors
+        else:
+            concept_output_vectors = None
+
+        image_output_vectors = combined_concept_attention_dict.get("output_space_image_vectors", None)
+        if image_output_vectors is not None and len(image_output_vectors) > 0:
+            image_output_vectors = torch.stack(image_output_vectors) if isinstance(image_output_vectors, list) else image_output_vectors
+        else:
+            image_output_vectors = None
+
         return ConceptAttentionPipelineOutput(
             image=image,
             concept_heatmaps=concept_heatmaps,
-            cross_attention_maps=cross_attention_maps
+            cross_attention_maps=cross_attention_maps,
+            concept_output_vectors=concept_output_vectors,
+            image_output_vectors=image_output_vectors,
         )
 

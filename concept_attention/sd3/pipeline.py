@@ -958,6 +958,9 @@ class CustomStableDiffusion3Pipeline(
         skip_layer_guidance_start: float = 0.01,
         mu: Optional[float] = None,
         concepts: list[str] = None,
+        cache_vectors: bool = True,
+        layer_indices: Optional[List[int]] = None,
+        timestep_indices: Optional[List[int]] = None,
     ):
         r"""
         Function invoked when calling the pipeline for generation.
@@ -1232,6 +1235,11 @@ class CustomStableDiffusion3Pipeline(
                 if self.interrupt:
                     continue
 
+                # Check if this timestep should be tracked
+                should_track_timestep = (
+                    timestep_indices is None or i in timestep_indices
+                )
+
                 # expand the latents if we are doing classifier free guidance
                 latent_model_input = (
                     torch.cat([latents] * 2)
@@ -1249,11 +1257,15 @@ class CustomStableDiffusion3Pipeline(
                     pooled_projections=pooled_prompt_embeds,
                     joint_attention_kwargs=self.joint_attention_kwargs,
                     return_dict=False,
+                    cache_vectors=cache_vectors and should_track_timestep,
+                    layer_indices=layer_indices,
                 )
-                for key in current_concept_attention_outputs:
-                    concept_attention_outputs[key].append(
-                        current_concept_attention_outputs[key]
-                    )
+                if should_track_timestep:
+                    for key in current_concept_attention_outputs:
+                        if current_concept_attention_outputs[key] is not None:
+                            concept_attention_outputs[key].append(
+                                current_concept_attention_outputs[key]
+                            )
 
                 # perform guidance
                 if self.do_classifier_free_guidance:
@@ -1335,7 +1347,10 @@ class CustomStableDiffusion3Pipeline(
         self.maybe_free_model_hooks()
 
         for key in concept_attention_outputs:
-            concept_attention_outputs[key] = torch.stack(concept_attention_outputs[key])
+            if len(concept_attention_outputs[key]) > 0:
+                concept_attention_outputs[key] = torch.stack(concept_attention_outputs[key])
+            else:
+                concept_attention_outputs[key] = None
 
         if not return_dict:
             return (image, concept_attention_outputs)

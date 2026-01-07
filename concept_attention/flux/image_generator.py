@@ -99,6 +99,10 @@ class FluxGenerator():
         add_sampling_metadata=True,
         restrict_clip_guidance=False,
         joint_attention_kwargs=None,
+        # Vector caching parameters
+        cache_vectors: bool = True,
+        layer_indices: list[int] | None = None,
+        timestep_indices: list[int] | None = None,
     ):
         seed = int(seed)
         if seed == -1:
@@ -171,13 +175,39 @@ class FluxGenerator():
             torch.cuda.empty_cache()
             self.model = self.model.to(self.device)
         # denoise initial noise
-        x, _, concept_attention_dict = denoise(
-            self.model, 
-            **inp, 
-            timesteps=timesteps, 
-            guidance=opts.guidance, 
-            joint_attention_kwargs=joint_attention_kwargs
+        x, _, concept_attention_dicts = denoise(
+            self.model,
+            **inp,
+            timesteps=timesteps,
+            guidance=opts.guidance,
+            joint_attention_kwargs=joint_attention_kwargs,
+            cache_vectors=cache_vectors,
+            layer_indices=layer_indices,
+            timestep_indices=timestep_indices,
         )
+
+        # Stack vectors from all timesteps and layers into tensors
+        # concept_attention_dicts is List[List[Dict]] - [timesteps][layers]{vectors}
+        vector_keys = [
+            "output_space_concept_vectors",
+            "output_space_image_vectors",
+            "cross_attention_concept_vectors",
+            "cross_attention_image_vectors",
+        ]
+        concept_attention_dict = {}
+        for key in vector_keys:
+            all_timesteps = []
+            for timestep_dicts in concept_attention_dicts:
+                layers = []
+                for layer_dict in timestep_dicts:
+                    if key in layer_dict:
+                        layers.append(layer_dict[key])
+                if layers:
+                    all_timesteps.append(torch.stack(layers))  # (layers, batch, tokens, dim)
+            if all_timesteps:
+                stacked = torch.stack(all_timesteps)  # (time, layers, batch, tokens, dim)
+                concept_attention_dict[key] = stacked
+
         # offload model, load autoencoder to gpu
         # if self.offload:
         self.model.cpu()

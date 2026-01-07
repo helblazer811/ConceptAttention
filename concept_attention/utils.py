@@ -1,6 +1,42 @@
 import torch
 import numpy as np
+import einops
 from sklearn.metrics import average_precision_score
+
+################################## Vector Stacking ##################################
+
+def stack_output_vectors(
+    concept_attention_dicts: list,
+    key: str,
+) -> torch.Tensor | None:
+    """
+    Stack output vectors from concept_attention_dicts.
+    Vectors are already filtered to only requested layers/timesteps.
+
+    Args:
+        concept_attention_dicts: List of attention dicts per timestep,
+                                 each containing a list of dicts per layer
+        key: "concept_output_vectors" or "image_output_vectors"
+
+    Returns:
+        Tensor of shape (batch, time, layers, tokens, dim) or None if no vectors
+    """
+    all_timesteps = []
+    for timestep_dicts in concept_attention_dicts:
+        layers = []
+        for layer_dict in timestep_dicts:
+            if key in layer_dict:
+                layers.append(layer_dict[key])
+        if layers:
+            all_timesteps.append(torch.stack(layers))  # (layers, batch, tokens, dim)
+
+    if not all_timesteps:
+        return None
+
+    stacked = torch.stack(all_timesteps)  # (time, layers, batch, tokens, dim)
+    return einops.rearrange(stacked, "time layers batch tokens dim -> batch time layers tokens dim")
+
+################################## Concept Encoding ##################################
 
 # Utils for concept encoding
 def embed_concepts(

@@ -19,6 +19,8 @@ logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 class FluxTransformer2DOutputWithConceptAttention(BaseOutput):
     sample: torch.Tensor
     concept_attention_maps: torch.Tensor
+    concept_output_vectors: torch.Tensor = None
+    image_output_vectors: torch.Tensor = None
 
 class FluxTransformer2DModelWithConceptAttention(FluxTransformer2DModel):
     """
@@ -102,6 +104,8 @@ class FluxTransformer2DModelWithConceptAttention(FluxTransformer2DModel):
         controlnet_single_block_samples=None,
         return_dict: bool = True,
         controlnet_blocks_repeat: bool = False,
+        cache_vectors: bool = True,
+        layer_indices: Optional[list] = None,
     ) -> Union[torch.Tensor, FluxTransformer2DOutputWithConceptAttention]:
         """
         The [`FluxTransformer2DModel`] forward method.
@@ -196,6 +200,8 @@ class FluxTransformer2DModelWithConceptAttention(FluxTransformer2DModel):
             joint_attention_kwargs.update({"ip_hidden_states": ip_hidden_states})
 
         all_concept_attention_maps = []
+        all_concept_output_vectors = []
+        all_image_output_vectors = []
         for index_block, block in enumerate(self.transformer_blocks):
             if torch.is_grad_enabled() and self.gradient_checkpointing:
                 encoder_hidden_states, hidden_states = self._gradient_checkpointing_func(
@@ -206,7 +212,7 @@ class FluxTransformer2DModelWithConceptAttention(FluxTransformer2DModel):
                     image_rotary_emb,
                 )
             else:
-                encoder_hidden_states, hidden_states, concept_hidden_states, concept_attention_maps = block(
+                encoder_hidden_states, hidden_states, concept_hidden_states, concept_attention_maps, concept_vecs, image_vecs = block(
                     hidden_states=hidden_states,
                     encoder_hidden_states=encoder_hidden_states,
                     concept_hidden_states=concept_hidden_states,
@@ -216,9 +222,16 @@ class FluxTransformer2DModelWithConceptAttention(FluxTransformer2DModel):
                     concept_rotary_emb=concept_rotary_emb,
                     joint_attention_kwargs=joint_attention_kwargs,
                     concept_attention_kwargs=concept_attention_kwargs,
+                    cache_vectors=cache_vectors,
+                    layer_indices=layer_indices,
+                    current_layer_idx=index_block,
                 )
-                if concept_attention_maps is not None and index_block in concept_attention_kwargs["layers"]:
+                if concept_attention_maps is not None and concept_attention_kwargs is not None and index_block in concept_attention_kwargs.get("layers", []):
                     all_concept_attention_maps.append(concept_attention_maps)
+                if concept_vecs is not None:
+                    all_concept_output_vectors.append(concept_vecs)
+                if image_vecs is not None:
+                    all_image_output_vectors.append(image_vecs)
                 del concept_attention_maps
 
             # controlnet residual
@@ -236,11 +249,21 @@ class FluxTransformer2DModelWithConceptAttention(FluxTransformer2DModel):
         if concept_hidden_states is not None:
             concept_hidden_states = concept_hidden_states.cpu()
         hidden_states = torch.cat([encoder_hidden_states, hidden_states], dim=1)
-        
+
         if len(all_concept_attention_maps) > 0:
             all_concept_attention_maps = torch.stack(all_concept_attention_maps, dim=0)
         else:
             all_concept_attention_maps = None
+
+        if len(all_concept_output_vectors) > 0:
+            all_concept_output_vectors = torch.stack(all_concept_output_vectors, dim=0)
+        else:
+            all_concept_output_vectors = None
+
+        if len(all_image_output_vectors) > 0:
+            all_image_output_vectors = torch.stack(all_image_output_vectors, dim=0)
+        else:
+            all_image_output_vectors = None
 
         for index_block, block in enumerate(self.single_transformer_blocks):
             if torch.is_grad_enabled() and self.gradient_checkpointing:
@@ -276,6 +299,11 @@ class FluxTransformer2DModelWithConceptAttention(FluxTransformer2DModel):
             unscale_lora_layers(self, lora_scale)
 
         if not return_dict:
-            return (output, all_concept_attention_maps)
-        
-        return FluxTransformer2DOutputWithConceptAttention(sample=output, concept_attention_maps=all_concept_attention_maps)
+            return (output, all_concept_attention_maps, all_concept_output_vectors, all_image_output_vectors)
+
+        return FluxTransformer2DOutputWithConceptAttention(
+            sample=output,
+            concept_attention_maps=all_concept_attention_maps,
+            concept_output_vectors=all_concept_output_vectors,
+            image_output_vectors=all_image_output_vectors,
+        )
