@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from concept_attention.binary_segmentation_baselines.raw_cross_attention import RawCrossAttentionBaseline, RawCrossAttentionSegmentationModel
 from concept_attention.binary_segmentation_baselines.raw_output_space import RawOutputSpaceBaseline, RawOutputSpaceSegmentationModel
-from concept_attention.flux.image_generator import FluxGenerator
+from concept_attention.flux.image_generator import FluxGenerator  # Keep for backwards compat
 
 @dataclass
 class ConceptAttentionPipelineOutput():

@@ -14,7 +14,7 @@ from diffusers.models.modeling_outputs import Transformer2DModelOutput
 from diffusers.models.modeling_utils import ModelMixin
 from diffusers.models.normalization import AdaLayerNorm, CogVideoXLayerNormZero
 
-from concept_attention.cogvideox.modified_attention_layer import ModifiedCogVideoXBlock
+from concept_attention.cogvideox.dit_block import ModifiedCogVideoXBlock
 
 
 class ModifiedCogVideoXTransformer3DModel(ModelMixin, ConfigMixin, PeftAdapterMixin):

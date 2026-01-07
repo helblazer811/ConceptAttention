@@ -13,7 +13,7 @@ from concept_attention.flux2.flux2.src.flux2.model import (
     timestep_embedding,
 )
 
-from concept_attention.flux2.modified_double_stream import ModifiedDoubleStreamBlock
+from concept_attention.flux2.dit_block import ModifiedDoubleStreamBlock
 
 
 class ModifiedFlux2(nn.Module):

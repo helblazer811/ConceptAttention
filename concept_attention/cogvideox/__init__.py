@@ -1,3 +1,3 @@
-from concept_attention.cogvideox.modified_dit import ModifiedCogVideoXTransformer3DModel
+from concept_attention.cogvideox.dit import ModifiedCogVideoXTransformer3DModel
 from concept_attention.cogvideox.pipeline import ModifiedCogVideoXPipeline
-from concept_attention.cogvideox.modified_attention_layer import ModifiedCogVideoXBlock
+from concept_attention.cogvideox.dit_block import ModifiedCogVideoXBlock

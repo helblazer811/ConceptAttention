@@ -44,7 +44,7 @@ from diffusers.pipelines.stable_diffusion_3.pipeline_output import (
     StableDiffusion3PipelineOutput,
 )
 
-from concept_attention.sd3.custom_mmdit import CustomSD3Transformer2DModel
+from concept_attention.sd3.dit_block import CustomSD3Transformer2DModel
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 

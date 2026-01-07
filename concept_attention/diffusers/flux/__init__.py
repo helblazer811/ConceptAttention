@@ -1,2 +1,2 @@
-from concept_attention.diffusers.flux.flux_with_concept_attention_pipeline import FluxWithConceptAttentionPipeline
-from concept_attention.diffusers.flux.flux_dit_with_concept_attention import FluxTransformer2DModelWithConceptAttention
+from concept_attention.diffusers.flux.pipeline import FluxWithConceptAttentionPipeline
+from concept_attention.diffusers.flux.dit import FluxTransformer2DModelWithConceptAttention

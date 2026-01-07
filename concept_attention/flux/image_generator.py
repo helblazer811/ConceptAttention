@@ -12,8 +12,8 @@ from concept_attention.flux.flux.src.flux.util import configs, embed_watermark, 
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file as load_sft
 
-from concept_attention.flux.modified_double_stream_block import ModifiedDoubleStreamBlock
-from concept_attention.flux.modified_flux_dit import ModifiedFluxDiT
+from concept_attention.flux.dit_block import ModifiedDoubleStreamBlock
+from concept_attention.flux.dit import ModifiedFluxDiT
 from concept_attention.utils import embed_concepts
 
 def load_flow_model(

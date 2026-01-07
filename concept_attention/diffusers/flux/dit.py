@@ -12,7 +12,7 @@ from diffusers.utils.import_utils import is_torch_npu_available
 from diffusers.utils.torch_utils import maybe_allow_in_graph
 from diffusers.models.embeddings import CombinedTimestepGuidanceTextProjEmbeddings, CombinedTimestepTextProjEmbeddings, FluxPosEmbed
 
-from concept_attention.diffusers.flux.flux_dit_block_with_concept_attention import FluxTransformerBlockWithConceptAttention
+from concept_attention.diffusers.flux.dit_block import FluxTransformerBlockWithConceptAttention
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 

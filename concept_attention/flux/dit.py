@@ -7,8 +7,8 @@ from concept_attention.flux.flux.src.flux.modules.layers import (DoubleStreamBlo
                                  MLPEmbedder, SingleStreamBlock,
                                  timestep_embedding)
 
-from concept_attention.flux.modified_double_stream_block import ModifiedDoubleStreamBlock
-from concept_attention.flux.modified_single_stream_block import ModifiedSingleStreamBlock
+from concept_attention.flux.dit_block import ModifiedDoubleStreamBlock
+from concept_attention.flux.dit_block_single import ModifiedSingleStreamBlock
 
 @dataclass
 class FluxParams:

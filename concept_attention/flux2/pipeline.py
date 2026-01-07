@@ -26,7 +26,7 @@ from concept_attention.flux2.flux2.src.flux2.sampling import (
     scatter_ids,
 )
 from concept_attention.flux2.flux2.src.flux2.util import load_ae, load_mistral_small_embedder
-from concept_attention.flux2.modified_dit import ModifiedFlux2
+from concept_attention.flux2.dit import ModifiedFlux2
 
 
 @dataclass
